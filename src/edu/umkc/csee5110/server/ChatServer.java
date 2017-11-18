@@ -30,6 +30,7 @@ public class ChatServer {
 	private static class ThreadHandler extends Thread {
 		private String name;
 		private Socket socket;
+		//TODO: move into method
 		private BufferedReader input;
 		private PrintWriter output;
 		
@@ -38,6 +39,7 @@ public class ChatServer {
 		}
 		
 		public void run() {
+			//TODO: use try with resources
 			try {
 				input = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 				output = new PrintWriter(socket.getOutputStream(), true);
