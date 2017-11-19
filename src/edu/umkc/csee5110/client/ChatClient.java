@@ -15,15 +15,18 @@ import java.util.HashSet;
 
 import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
+import javax.swing.DefaultListModel;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JList;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
+import javax.swing.ListModel;
 import javax.swing.SwingUtilities;
 
 import edu.umkc.csee5110.utils.Constants;
@@ -36,7 +39,7 @@ public class ChatClient {
 	JFrame frame = new JFrame("Chat Client");
 	JTextField textField = new JTextField(40);
 	JTextArea textArea = new JTextArea(8, 40);
-	JPanel nameList = new JPanel();
+	DefaultListModel<String> model = new DefaultListModel<String>();
 	
 	public ChatClient() {
 //		textField.setEditable(false);
@@ -70,11 +73,8 @@ public class ChatClient {
 		textPanel.add(textField);
 		JScrollPane namePane = new JScrollPane();
 		namePane.setBorder(BorderFactory.createEmptyBorder());
-		JLabel a1 = new JLabel("lucas");
-		JLabel a2 = new JLabel("jackie");
+		JList<String> nameList = new JList<String>(model);
 		nameList.setLayout(new BoxLayout(nameList, BoxLayout.Y_AXIS));
-	//	p1.add(a1);
-	//	p1.add(a2);
 		namePane.setViewportView(nameList);
 		namePanel.add(namePane);
 		panel.setLayout(new BoxLayout(panel, BoxLayout.X_AXIS));
@@ -119,7 +119,16 @@ public class ChatClient {
 				textArea.append(line.substring(8) + "\n");
 			} else if (line.startsWith("NAME")) {
 				//nameList.append(line.substring(5) + "\n");	
-				nameList.add(new JLabel(line.substring(5)));
+				//nameList.add(new JLabel(line.substring(5)));
+				if (!model.contains(line.substring(5))) {
+					model.addElement(line.substring(5));
+				}
+				//output.println("NEWNAME " + getName());
+				System.out.println("Got message " + line);
+				//System.out.println(nameList.getComponentCount());
+				//nameList.validate();
+				//nameList.getParent().validate();
+				//frame.validate();
 			}
 		}
 	}

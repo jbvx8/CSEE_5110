@@ -70,6 +70,7 @@ public class ChatServer {
 				
 				output.println("NAMEACCEPTED");		
 				//writers.add(output);
+				System.out.println("Putting " + name + " with " + output);
 				nameToWriter.put(name, output);
 				
 //				for (PrintWriter w : writers) {
@@ -79,10 +80,28 @@ public class ChatServer {
 //					}
 //				}
 				
+				for (Entry<String, PrintWriter> entry : nameToWriter.entrySet()) {
+					for (String n : nameToWriter.keySet()) {
+						entry.getValue().println("NAME " + n);
+						System.out.println("Sending NAME " + n + " to " + entry.getValue());
+					}
+				}
+				
 				while (true) {
 					String in = input.readLine();
 					if (in == null) {
 						return;
+					}
+					if (in.startsWith("NEWNAME ")) {
+						String name = in.substring(5);
+						for (Entry<String, PrintWriter> entry : nameToWriter.entrySet()) {
+							for (String n : nameToWriter.keySet()) {
+								if (!n.equalsIgnoreCase(name)) {
+									entry.getValue().println("NAME " + in.substring(5));
+								}
+							}
+						}
+						continue;
 					}
 					for (Entry<String, PrintWriter> entry : nameToWriter.entrySet()) {
 						//writer.println("MESSAGE " + name + ": " + in);
