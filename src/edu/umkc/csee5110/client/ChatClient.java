@@ -125,23 +125,12 @@ public class ChatClient {
 				}
 				//output.println("NEWNAME " + getName());
 				System.out.println("Got message " + line);
-				//System.out.println(nameList.getComponentCount());
-				//nameList.validate();
-				//nameList.getParent().validate();
-				//frame.validate();
+			} else if (line.startsWith("REMOVENAME")) {
+				model.removeElement(line.substring(11));
 			}
 		}
 	}
-	
-//	private class TabbedPane extends JPanel {
-//		TabbedPane() {
-//			super(new GridLayout(1, 1));
-//			JTabbedPane tabbedPane = new JTabbedPane();
-//			JComponent publicPanel = makePublicTab();
-//			tabbedPane.add("Public", publicPanel);		
-//		}
-//	}
-	
+		
 	public JTabbedPane createNewPane() {
 		JTabbedPane tabbedPane = new JTabbedPane();
 		JComponent publicPanel = makePublicTab();

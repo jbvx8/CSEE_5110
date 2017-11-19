@@ -117,6 +117,10 @@ public class ChatServer {
 				if (name != null) {
 					//writers.remove(output);
 					nameToWriter.remove(name);
+					for (Entry<String, PrintWriter> entry : nameToWriter.entrySet()) {
+						entry.getValue().println("REMOVENAME " + name);
+						System.out.println(entry.getValue() + " removing " + name);
+					}
 				}
 				try {
 					socket.close();
