@@ -6,14 +6,18 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
+import java.util.Map.Entry;
 
 import edu.umkc.csee5110.utils.Constants;
 
 public class ChatServer {
 	
-	private static HashSet<String> names = new HashSet<>();
-	private static HashSet<PrintWriter> writers = new HashSet<>();
+	//private static HashSet<String> names = new HashSet<>();
+	//private static HashSet<PrintWriter> writers = new HashSet<>();
+	private static Map<String, PrintWriter> nameToWriter = new HashMap<>();
 	
 	public static void main(String[] args) throws Exception {
 		System.out.println("The server is listenting at port " + Constants.SERVER_PORT);
@@ -50,34 +54,50 @@ public class ChatServer {
 					if (name == null) {
 						return;
 					}
-					synchronized (names) {
-						if (!names.contains(name)) {
-							names.add(name);
-							break;
-						}
+//					synchronized (names) {
+//						if (!names.contains(name)) {
+//							names.add(name);
+//							break;
+//						}
+//					}
+					if (nameToWriter.get(name) == null) {
+						break;
 					}
 				}
+//				for (String n : names) {
+//					output.println("NAME " + n);
+//				}
 				
-				output.println("NAMEACCEPTED");
-				writers.add(output);
+				output.println("NAMEACCEPTED");		
+				//writers.add(output);
+				nameToWriter.put(name, output);
+				
+//				for (PrintWriter w : writers) {
+//					for (String n : names) {
+//						System.out.println(n);
+//						w.println("NAME " + n);
+//					}
+//				}
 				
 				while (true) {
 					String in = input.readLine();
 					if (in == null) {
 						return;
 					}
-					for (PrintWriter writer : writers) {
-						writer.println("MESSAGE " + name + ": " + in);
+					for (Entry<String, PrintWriter> entry : nameToWriter.entrySet()) {
+						//writer.println("MESSAGE " + name + ": " + in);
+						entry.getValue().println("MESSAGE " + name + ": " + in);
 					}
 				}
 			} catch (IOException e) {
 				System.out.println(e);
 			} finally {
+//				if (name != null) {
+//					names.remove(name);
+//				}
 				if (name != null) {
-					names.remove(name);
-				}
-				if (output != null) {
-					writers.remove(output);
+					//writers.remove(output);
+					nameToWriter.remove(name);
 				}
 				try {
 					socket.close();

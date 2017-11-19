@@ -2,6 +2,7 @@ package edu.umkc.csee5110.client;
 
 import java.awt.BorderLayout;
 import java.awt.Component;
+import java.awt.Dimension;
 import java.awt.GridLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -10,10 +11,13 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.util.HashSet;
 
+import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
+import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
@@ -32,6 +36,7 @@ public class ChatClient {
 	JFrame frame = new JFrame("Chat Client");
 	JTextField textField = new JTextField(40);
 	JTextArea textArea = new JTextArea(8, 40);
+	JPanel nameList = new JPanel();
 	
 	public ChatClient() {
 //		textField.setEditable(false);
@@ -50,18 +55,31 @@ public class ChatClient {
 	}
 	
 	private JComponent makePublicTab() {
-		JPanel panel = new JPanel(false);
+		JPanel panel = new JPanel();
+		JPanel textPanel = new JPanel();
+		JPanel namePanel = new JPanel();
 //		JTextField textField = new JTextField(40);
 //		JTextArea textArea = new JTextArea(8, 40);
 		
 		textField.setEditable(false);
 		textArea.setEditable(false);
 		
-		BoxLayout grid = new BoxLayout(panel, BoxLayout.Y_AXIS);
-		
-		panel.setLayout(grid);
-		panel.add(new JScrollPane(textArea), "Center");
-		panel.add(textField, "North");
+		BoxLayout grid = new BoxLayout(textPanel, BoxLayout.Y_AXIS);
+		textPanel.setLayout(grid);
+		textPanel.add(new JScrollPane(textArea));
+		textPanel.add(textField);
+		JScrollPane namePane = new JScrollPane();
+		namePane.setBorder(BorderFactory.createEmptyBorder());
+		JLabel a1 = new JLabel("lucas");
+		JLabel a2 = new JLabel("jackie");
+		nameList.setLayout(new BoxLayout(nameList, BoxLayout.Y_AXIS));
+	//	p1.add(a1);
+	//	p1.add(a2);
+		namePane.setViewportView(nameList);
+		namePanel.add(namePane);
+		panel.setLayout(new BoxLayout(panel, BoxLayout.X_AXIS));
+		panel.add(textPanel);
+		panel.add(namePanel);
 		
 		textField.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
@@ -70,26 +88,19 @@ public class ChatClient {
 			}
 		});
 		
-		
-		//panel.add(title);
-		//textField.requestFocusInWindow();
-//		SwingUtilities.invokeLater( new Runnable() { 
-//
-//			public void run() { 
-//			        textField.requestFocus(); 
-//			    } 
-//			} );
 		return panel;		
 	}
 	
 	
 	private String getName() {
-		return JOptionPane.showInputDialog(
+		return JOptionPane .showInputDialog(
 				frame,
 				"Enter a screen name: ",
 				"Screen name selection",
 				JOptionPane.PLAIN_MESSAGE);
 	}
+	
+	
 	
 	private void run() throws IOException {
 		Socket socket = new Socket(Constants.SERVER_IP, Constants.SERVER_PORT);
@@ -106,19 +117,21 @@ public class ChatClient {
 				textField.setEditable(true);
 			} else if (line.startsWith("MESSAGE")) {
 				textArea.append(line.substring(8) + "\n");
+			} else if (line.startsWith("NAME")) {
+				//nameList.append(line.substring(5) + "\n");	
+				nameList.add(new JLabel(line.substring(5)));
 			}
 		}
 	}
 	
-	private class TabbedPane extends JPanel {
-		TabbedPane() {
-			super(new GridLayout(1, 1));
-			JTabbedPane tabbedPane = new JTabbedPane();
-			JComponent publicPanel = makePublicTab();
-			tabbedPane.add("Public", publicPanel);
-			
-		}
-	}
+//	private class TabbedPane extends JPanel {
+//		TabbedPane() {
+//			super(new GridLayout(1, 1));
+//			JTabbedPane tabbedPane = new JTabbedPane();
+//			JComponent publicPanel = makePublicTab();
+//			tabbedPane.add("Public", publicPanel);		
+//		}
+//	}
 	
 	public JTabbedPane createNewPane() {
 		JTabbedPane tabbedPane = new JTabbedPane();
@@ -129,6 +142,7 @@ public class ChatClient {
  
 	public static void main(String[] args) throws Exception {
 		ChatClient client = new ChatClient();
+		client.frame.setPreferredSize(new Dimension(1000, 500));
 		client.frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		client.frame.add(client.createNewPane(), BorderLayout.CENTER);
 		client.frame.pack();
