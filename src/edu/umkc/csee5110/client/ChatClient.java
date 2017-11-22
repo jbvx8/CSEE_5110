@@ -1,24 +1,26 @@
 package edu.umkc.csee5110.client;
 
 import java.awt.BorderLayout;
-import java.awt.Component;
 import java.awt.Dimension;
-import java.awt.GridLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
 import javax.swing.DefaultListModel;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
-import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
@@ -26,43 +28,33 @@ import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
-import javax.swing.ListModel;
-import javax.swing.SwingUtilities;
 
 import edu.umkc.csee5110.utils.Constants;
-import edu.umkc.csee5110.utils.TabbedPane;
 
 public class ChatClient {
 	
+	String name;
 	BufferedReader input;
 	PrintWriter output;
 	JFrame frame = new JFrame("Chat Client");
 	JTextField textField = new JTextField(40);
 	JTextArea textArea = new JTextArea(8, 40);
+	JTabbedPane tabbedPane = new JTabbedPane();
 	DefaultListModel<String> model = new DefaultListModel<String>();
+	Map<String, JTextArea> privateChatUsers = new HashMap<>();
 	
 	public ChatClient() {
-//		textField.setEditable(false);
-//		textArea.setEditable(false);
-//		frame.getContentPane().add(textField, "North");
-//		frame.getContentPane().add(new JScrollPane(textArea), "Center");
-		
 		frame.pack();
-		
-//		textField.addActionListener(new ActionListener() {
-//			public void actionPerformed(ActionEvent e) {
-//				output.println(textField.getText());
-//				textField.setText("");
-//			}
-//		});
+	}
+	
+	public synchronized void write(String out) {
+		output.println(out);
 	}
 	
 	private JComponent makePublicTab() {
 		JPanel panel = new JPanel();
 		JPanel textPanel = new JPanel();
 		JPanel namePanel = new JPanel();
-//		JTextField textField = new JTextField(40);
-//		JTextArea textArea = new JTextArea(8, 40);
 		
 		textField.setEditable(false);
 		textArea.setEditable(false);
@@ -83,8 +75,62 @@ public class ChatClient {
 		
 		textField.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
-				output.println(textField.getText());
+				write(textField.getText());
 				textField.setText("");
+			}
+		});
+		
+		nameList.addMouseListener(new MouseListener() {
+			
+			@Override
+			public void mouseReleased(MouseEvent e) {
+				// TODO Auto-generated method stub
+				
+			}
+			
+			@Override
+			public void mousePressed(MouseEvent e) {
+				// TODO Auto-generated method stub
+			}
+			
+			@Override
+			public void mouseExited(MouseEvent e) {
+				// TODO Auto-generated method stub
+				
+			}
+			
+			@Override
+			public void mouseEntered(MouseEvent e) {
+				// TODO Auto-generated method stub
+				
+			}
+			
+			@Override
+			public void mouseClicked(MouseEvent e) {
+				String selectedValue = nameList.getSelectedValue();
+				if (selectedValue == null || selectedValue.isEmpty() || privateChatUsers.keySet().contains(selectedValue)) {
+					return;
+				}
+				
+				JPanel textPanel2 = new JPanel();
+				JTextField textField2 = new JTextField(40);
+				JTextArea textArea2 = new JTextArea(8, 40);
+				BoxLayout grid = new BoxLayout(textPanel2, BoxLayout.Y_AXIS);
+				textPanel2.setLayout(grid);
+				textPanel2.add(new JScrollPane(textArea2));
+				textPanel2.add(textField2);
+				
+				textField2.addActionListener(new ActionListener() {
+					public void actionPerformed(ActionEvent e) {
+						write("PRIVATE_CHAT_SEND_" + name + "_" + selectedValue + " " + textField2.getText());
+						textArea2.append(name + ": " + textField2.getText() + "\n");
+						textField2.setText("");
+					}
+				});
+				
+				tabbedPane.addTab(nameList.getSelectedValue(), textPanel2);
+				privateChatUsers.put(selectedValue, textArea2);
+				write("PRIVATE_CHAT_INITIATE_" + selectedValue + " " + textField2.getText());
 			}
 		});
 		
@@ -110,8 +156,11 @@ public class ChatClient {
 		
 		while (true) {
 			String line = input.readLine();
+			System.out.println(line);
 			if (line.startsWith("SUBMITNAME")) {
-				output.println(getName());
+				//output.println(getName());
+				name = getName();
+				write(name);
 				textField.requestFocus();
 			} else if (line.startsWith("NAMEACCEPTED")) {
 				textField.setEditable(true);
@@ -126,13 +175,47 @@ public class ChatClient {
 				//output.println("NEWNAME " + getName());
 				System.out.println("Got message " + line);
 			} else if (line.startsWith("REMOVENAME")) {
+				// TODO remove any chat window
 				model.removeElement(line.substring(11));
+			} else if (line.startsWith("PRIVATE_CHAT_INITIATE_")) {
+				String otherUser = line.substring("PRIVATE_CHAT_INITIATE_".length());
+				System.out.println("PRIV " + otherUser + " PRIVCHAT: " + privateChatUsers);
+				if (!privateChatUsers.keySet().contains(otherUser)) {
+					JPanel textPanel2 = new JPanel();
+					JTextField textField2 = new JTextField(40);
+					JTextArea textArea2 = new JTextArea(8, 40);
+					BoxLayout grid = new BoxLayout(textPanel2, BoxLayout.Y_AXIS);
+					textPanel2.setLayout(grid);
+					textPanel2.add(new JScrollPane(textArea2));
+					textPanel2.add(textField2);
+					
+					textField2.addActionListener(new ActionListener() {
+						public void actionPerformed(ActionEvent e) {
+							write("PRIVATE_CHAT_SEND_" + name + "_" + otherUser + " " + textField2.getText());
+							textArea2.append(name + ": " + textField2.getText() + "\n");
+							textField2.setText("");
+						}
+					});
+					
+					tabbedPane.addTab(otherUser, textPanel2);
+					privateChatUsers.put(otherUser, textArea2);
+				}
+			} else if (line.startsWith("PRIVATE_CHAT_RECEIVE")) {
+				String requestedPartner1 = line.substring("PRIVATE_CHAT_RECEIVE_".length(), line.indexOf(" ")).trim();
+				String sender = requestedPartner1.substring(0, requestedPartner1.indexOf("_"));
+				String receiver = requestedPartner1.substring(requestedPartner1.lastIndexOf("_") + 1);
+				String message = line.substring(line.indexOf(" "));
+				System.out.println(message + " " + sender + " " + receiver + " " + privateChatUsers);
+				if (privateChatUsers.keySet().contains(sender)) {
+					System.out.println("message from " + receiver + " : " + message);
+					JTextArea textArea = privateChatUsers.get(sender);
+					textArea.append(sender + ": " + message + "\n");
+				}
 			}
 		}
 	}
 		
 	public JTabbedPane createNewPane() {
-		JTabbedPane tabbedPane = new JTabbedPane();
 		JComponent publicPanel = makePublicTab();
 		tabbedPane.add("Public", publicPanel);
 		return tabbedPane;

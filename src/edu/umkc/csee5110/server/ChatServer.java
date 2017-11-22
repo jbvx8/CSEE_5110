@@ -104,6 +104,27 @@ public class ChatServer {
 						continue;
 					}
 					for (Entry<String, PrintWriter> entry : nameToWriter.entrySet()) {
+						if (in.startsWith("PRIVATE_CHAT_INITIATE_")) {
+							//System.out.println(in);
+							String requestedPartner = in.substring("PRIVATE_CHAT_INITIATE_".length()).trim();
+							//System.out.println(requestedPartner + " --- " + entry.getKey());
+							if (requestedPartner.equals(entry.getKey())) {
+								entry.getValue().println("PRIVATE_CHAT_INITIATE_" + name);
+								break;
+							}
+							continue;
+						} else if (in.startsWith("PRIVATE_CHAT_SEND_")) {
+							String requestedPartner1 = in.substring("PRIVATE_CHAT_SEND_".length(), in.indexOf(" ")).trim();
+							String sender = requestedPartner1.substring(0, requestedPartner1.indexOf("_"));
+							String receiver = requestedPartner1.substring(requestedPartner1.lastIndexOf("_") + 1);
+							System.out.println(in + " " + sender + " " + receiver);
+							if (receiver.equals(entry.getKey())) {
+								String message = in.substring(in.indexOf(" "));
+								entry.getValue().println("PRIVATE_CHAT_RECEIVE_" + sender + "_" + receiver + " " + message);
+								break;
+							}
+							continue;
+						}
 						//writer.println("MESSAGE " + name + ": " + in);
 						entry.getValue().println("MESSAGE " + name + ": " + in);
 					}
