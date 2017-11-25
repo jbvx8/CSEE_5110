@@ -29,10 +29,11 @@ import javax.swing.JTabbedPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 
+import edu.umkc.csee5110.MessageType;
 import edu.umkc.csee5110.utils.Constants;
 
 public class ChatClient {
-	
+
 	String name;
 	BufferedReader input;
 	PrintWriter output;
@@ -42,23 +43,23 @@ public class ChatClient {
 	JTabbedPane tabbedPane = new JTabbedPane();
 	DefaultListModel<String> model = new DefaultListModel<String>();
 	Map<String, JTextArea> privateChatUsers = new HashMap<>();
-	
+
 	public ChatClient() {
 		frame.pack();
 	}
-	
+
 	public synchronized void write(String out) {
 		output.println(out);
 	}
-	
+
 	private JComponent makePublicTab() {
 		JPanel panel = new JPanel();
 		JPanel textPanel = new JPanel();
 		JPanel namePanel = new JPanel();
-		
+
 		textField.setEditable(false);
 		textArea.setEditable(false);
-		
+
 		BoxLayout grid = new BoxLayout(textPanel, BoxLayout.Y_AXIS);
 		textPanel.setLayout(grid);
 		textPanel.add(new JScrollPane(textArea));
@@ -72,46 +73,46 @@ public class ChatClient {
 		panel.setLayout(new BoxLayout(panel, BoxLayout.X_AXIS));
 		panel.add(textPanel);
 		panel.add(namePanel);
-		
+
 		textField.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
-				write(textField.getText());
+				write(MessageType.SEND_MESSAGE + "|" + textField.getText());
 				textField.setText("");
 			}
 		});
-		
+
 		nameList.addMouseListener(new MouseListener() {
-			
+
 			@Override
 			public void mouseReleased(MouseEvent e) {
 				// TODO Auto-generated method stub
-				
+
 			}
-			
+
 			@Override
 			public void mousePressed(MouseEvent e) {
 				// TODO Auto-generated method stub
 			}
-			
+
 			@Override
 			public void mouseExited(MouseEvent e) {
 				// TODO Auto-generated method stub
-				
+
 			}
-			
+
 			@Override
 			public void mouseEntered(MouseEvent e) {
 				// TODO Auto-generated method stub
-				
+
 			}
-			
+
 			@Override
 			public void mouseClicked(MouseEvent e) {
 				String selectedValue = nameList.getSelectedValue();
 				if (selectedValue == null || selectedValue.isEmpty() || privateChatUsers.keySet().contains(selectedValue)) {
 					return;
 				}
-				
+
 				JPanel textPanel2 = new JPanel();
 				JTextField textField2 = new JTextField(40);
 				JTextArea textArea2 = new JTextArea(8, 40);
@@ -119,7 +120,7 @@ public class ChatClient {
 				textPanel2.setLayout(grid);
 				textPanel2.add(new JScrollPane(textArea2));
 				textPanel2.add(textField2);
-				
+
 				textField2.addActionListener(new ActionListener() {
 					public void actionPerformed(ActionEvent e) {
 						write("PRIVATE_CHAT_SEND_" + name + "_" + selectedValue + " " + textField2.getText());
@@ -127,100 +128,155 @@ public class ChatClient {
 						textField2.setText("");
 					}
 				});
-				
+
 				tabbedPane.addTab(nameList.getSelectedValue(), textPanel2);
 				privateChatUsers.put(selectedValue, textArea2);
 				write("PRIVATE_CHAT_INITIATE_" + selectedValue + " " + textField2.getText());
 			}
 		});
-		
-		return panel;		
+
+		return panel;
 	}
-	
-	
+
 	private String getName() {
-		return JOptionPane .showInputDialog(
-				frame,
-				"Enter a screen name: ",
-				"Screen name selection",
-				JOptionPane.PLAIN_MESSAGE);
+		return JOptionPane.showInputDialog(frame, "Enter a screen name: ", "Screen name selection", JOptionPane.PLAIN_MESSAGE);
 	}
-	
-	
-	
+
 	private void run() throws IOException {
-		Socket socket = new Socket(Constants.SERVER_IP, Constants.SERVER_PORT);
-		input = new BufferedReader(new InputStreamReader(
-				socket.getInputStream()));
-		output = new PrintWriter(socket.getOutputStream(), true);
-		
-		while (true) {
-			String line = input.readLine();
-			System.out.println(line);
-			if (line.startsWith("SUBMITNAME")) {
-				//output.println(getName());
-				name = getName();
-				write(name);
-				textField.requestFocus();
-			} else if (line.startsWith("NAMEACCEPTED")) {
-				textField.setEditable(true);
-			} else if (line.startsWith("MESSAGE")) {
-				textArea.append(line.substring(8) + "\n");
-			} else if (line.startsWith("NAME")) {
-				//nameList.append(line.substring(5) + "\n");	
-				//nameList.add(new JLabel(line.substring(5)));
-				if (!model.contains(line.substring(5))) {
-					model.addElement(line.substring(5));
+		try (Socket socket = new Socket(Constants.SERVER_IP, Constants.SERVER_PORT)) {
+			
+			input = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+			output = new PrintWriter(socket.getOutputStream(), true);
+
+			while (true) {
+				String line = input.readLine();
+				System.out.println(line);
+				int delimiterLocation = line.indexOf("|") == -1 ? line.length() : line.indexOf("|");
+				String messageType = line.substring(0, delimiterLocation);
+				MessageType type = MessageType.valueOf(messageType);
+				
+				switch (type) {
+				case REQUESTNAME:
+					name = getName();
+					write(name);
+					textField.requestFocus();
+					break;
+				case NAMEACCEPTED:
+					textField.setEditable(true);
+					break;
+				case RECEIVE_MESSAGE:
+					String temp = line.substring(MessageType.RECEIVE_MESSAGE.name().length() + 1);
+					String user = temp.substring(0, temp.indexOf("|"));
+					String msg = line.substring(ordinalIndexOf(line, "|", 2, false) + 1);
+					System.out.println("user: " + user + " recv: " + msg);
+					textArea.append(user + ": " + msg + "\n");
+					break;
+				case ADD_NAME:
+					if (!model.contains(line.substring(MessageType.ADD_NAME.name().length() + 1))) {
+						model.addElement(line.substring(MessageType.ADD_NAME.name().length() + 1));
+					}
+					System.out.println("Got message " + line);
+					break;
+				case REMOVE_NAME:
+					model.removeElement(line.substring(MessageType.REMOVE_NAME.name().length() + 1));
+					break;
+				case PRIVATE_CHAT_INITIATE:
+					String otherUser = line.substring(MessageType.PRIVATE_CHAT_INITIATE.name().length() + 1);
+					//System.out.println("PRIV " + otherUser + " PRIVCHAT: " + privateChatUsers);
+					if (!privateChatUsers.keySet().contains(otherUser)) {
+						JPanel textPanel2 = new JPanel();
+						JTextField textField2 = new JTextField(40);
+						JTextArea textArea2 = new JTextArea(8, 40);
+						BoxLayout grid = new BoxLayout(textPanel2, BoxLayout.Y_AXIS);
+						textPanel2.setLayout(grid);
+						textPanel2.add(new JScrollPane(textArea2));
+						textPanel2.add(textField2);
+
+						textField2.addActionListener(new ActionListener() {
+							public void actionPerformed(ActionEvent e) {
+								write(MessageType.PRIVATE_CHAT_SEND + "|" + name + "|" + otherUser + " " + textField2.getText());
+								textArea2.append(name + ": " + textField2.getText() + "\n");
+								textField2.setText("");
+							}
+						});
+
+						tabbedPane.addTab(otherUser, textPanel2);
+						privateChatUsers.put(otherUser, textArea2);
+					}
+					break;
+				case PRIVATE_CHAT_RECEIVE:
+					String requestedPartner1 = line.substring(MessageType.PRIVATE_CHAT_RECEIVE.name().length() + 1, line.indexOf("|")).trim();
+					String sender = requestedPartner1.substring(0, requestedPartner1.indexOf("|"));
+					String receiver = requestedPartner1.substring(requestedPartner1.lastIndexOf("|") + 1);
+					String message = line.substring(line.indexOf(" "));
+					System.out.println(message + " " + sender + " " + receiver + " " + privateChatUsers);
+					if (privateChatUsers.keySet().contains(sender)) {
+						System.out.println("message from " + receiver + " : " + message);
+						JTextArea textArea = privateChatUsers.get(sender);
+						textArea.append(sender + ": " + message + "\n");
+					}
+					break;
 				}
-				//output.println("NEWNAME " + getName());
-				System.out.println("Got message " + line);
-			} else if (line.startsWith("REMOVENAME")) {
-				// TODO remove any chat window
-				model.removeElement(line.substring(11));
-			} else if (line.startsWith("PRIVATE_CHAT_INITIATE_")) {
-				String otherUser = line.substring("PRIVATE_CHAT_INITIATE_".length());
-				System.out.println("PRIV " + otherUser + " PRIVCHAT: " + privateChatUsers);
-				if (!privateChatUsers.keySet().contains(otherUser)) {
-					JPanel textPanel2 = new JPanel();
-					JTextField textField2 = new JTextField(40);
-					JTextArea textArea2 = new JTextArea(8, 40);
-					BoxLayout grid = new BoxLayout(textPanel2, BoxLayout.Y_AXIS);
-					textPanel2.setLayout(grid);
-					textPanel2.add(new JScrollPane(textArea2));
-					textPanel2.add(textField2);
-					
-					textField2.addActionListener(new ActionListener() {
-						public void actionPerformed(ActionEvent e) {
-							write("PRIVATE_CHAT_SEND_" + name + "_" + otherUser + " " + textField2.getText());
-							textArea2.append(name + ": " + textField2.getText() + "\n");
-							textField2.setText("");
-						}
-					});
-					
-					tabbedPane.addTab(otherUser, textPanel2);
-					privateChatUsers.put(otherUser, textArea2);
-				}
-			} else if (line.startsWith("PRIVATE_CHAT_RECEIVE")) {
-				String requestedPartner1 = line.substring("PRIVATE_CHAT_RECEIVE_".length(), line.indexOf(" ")).trim();
-				String sender = requestedPartner1.substring(0, requestedPartner1.indexOf("_"));
-				String receiver = requestedPartner1.substring(requestedPartner1.lastIndexOf("_") + 1);
-				String message = line.substring(line.indexOf(" "));
-				System.out.println(message + " " + sender + " " + receiver + " " + privateChatUsers);
-				if (privateChatUsers.keySet().contains(sender)) {
-					System.out.println("message from " + receiver + " : " + message);
-					JTextArea textArea = privateChatUsers.get(sender);
-					textArea.append(sender + ": " + message + "\n");
-				}
+//				if (line.startsWith("REQUESTNAME")) {
+//					name = getName();
+//					write(name);
+//					textField.requestFocus();
+//				} else if (line.startsWith("NAMEACCEPTED")) {
+//					textField.setEditable(true);
+//				} else if (line.startsWith("MESSAGE")) {
+//					textArea.append(line.substring(8) + "\n");
+//				} else if (line.startsWith("NAME")) {
+//					if (!model.contains(line.substring(5))) {
+//						model.addElement(line.substring(5));
+//					}
+//					System.out.println("Got message " + line);
+//				} else if (line.startsWith("REMOVENAME")) {
+//					model.removeElement(line.substring(11));
+//				} else if (line.startsWith("PRIVATE_CHAT_INITIATE_")) {
+//					String otherUser = line.substring("PRIVATE_CHAT_INITIATE_".length());
+//					System.out.println("PRIV " + otherUser + " PRIVCHAT: " + privateChatUsers);
+//					if (!privateChatUsers.keySet().contains(otherUser)) {
+//						JPanel textPanel2 = new JPanel();
+//						JTextField textField2 = new JTextField(40);
+//						JTextArea textArea2 = new JTextArea(8, 40);
+//						BoxLayout grid = new BoxLayout(textPanel2, BoxLayout.Y_AXIS);
+//						textPanel2.setLayout(grid);
+//						textPanel2.add(new JScrollPane(textArea2));
+//						textPanel2.add(textField2);
+//
+//						textField2.addActionListener(new ActionListener() {
+//							public void actionPerformed(ActionEvent e) {
+//								write("PRIVATE_CHAT_SEND_" + name + "_" + otherUser + " " + textField2.getText());
+//								textArea2.append(name + ": " + textField2.getText() + "\n");
+//								textField2.setText("");
+//							}
+//						});
+//
+//						tabbedPane.addTab(otherUser, textPanel2);
+//						privateChatUsers.put(otherUser, textArea2);
+//					}
+//				} else if (line.startsWith(MessageType.PRIVATE_CHAT_RECEIVE_.name())) {
+//					String requestedPartner1 = line.substring("PRIVATE_CHAT_RECEIVE_".length(), line.indexOf(" ")).trim();
+//					String sender = requestedPartner1.substring(0, requestedPartner1.indexOf("_"));
+//					String receiver = requestedPartner1.substring(requestedPartner1.lastIndexOf("_") + 1);
+//					String message = line.substring(line.indexOf(" "));
+//					System.out.println(message + " " + sender + " " + receiver + " " + privateChatUsers);
+//					if (privateChatUsers.keySet().contains(sender)) {
+//						System.out.println("message from " + receiver + " : " + message);
+//						JTextArea textArea = privateChatUsers.get(sender);
+//						textArea.append(sender + ": " + message + "\n");
+//					}
+//				}
 			}
 		}
 	}
-		
+
 	public JTabbedPane createNewPane() {
 		JComponent publicPanel = makePublicTab();
 		tabbedPane.add("Public", publicPanel);
 		return tabbedPane;
 	}
- 
+
 	public static void main(String[] args) throws Exception {
 		ChatClient client = new ChatClient();
 		client.frame.setPreferredSize(new Dimension(1000, 500));
@@ -230,5 +286,28 @@ public class ChatClient {
 		client.frame.setVisible(true);
 		client.run();
 	}
+	
+	private static int ordinalIndexOf(String str, String searchStr, int ordinal, boolean lastIndex) {
+        if (str == null || searchStr == null || ordinal <= 0) {
+            return -1;
+        }
+        if (searchStr.length() == 0) {
+            return lastIndex ? str.length() : 0;
+        }
+        int found = 0;
+        int index = lastIndex ? str.length() : -1;
+        do {
+            if(lastIndex) {
+                index = str.lastIndexOf(searchStr, index - 1);
+            } else {
+                index = str.indexOf(searchStr, index + 1);
+            }
+            if (index < 0) {
+                return index;
+            }
+            found++;
+        } while (found < ordinal);
+        return index;
+    }
 
 }
