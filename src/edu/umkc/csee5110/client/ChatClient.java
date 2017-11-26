@@ -12,9 +12,7 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 
 import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
@@ -113,29 +111,33 @@ public class ChatClient {
 					return;
 				}
 
-				JPanel textPanel2 = new JPanel();
-				JTextField textField2 = new JTextField(40);
-				JTextArea textArea2 = new JTextArea(8, 40);
-				BoxLayout grid = new BoxLayout(textPanel2, BoxLayout.Y_AXIS);
-				textPanel2.setLayout(grid);
-				textPanel2.add(new JScrollPane(textArea2));
-				textPanel2.add(textField2);
-
-				textField2.addActionListener(new ActionListener() {
-					public void actionPerformed(ActionEvent e) {
-						write("PRIVATE_CHAT_SEND_" + name + "_" + selectedValue + " " + textField2.getText());
-						textArea2.append(name + ": " + textField2.getText() + "\n");
-						textField2.setText("");
-					}
-				});
-
-				tabbedPane.addTab(nameList.getSelectedValue(), textPanel2);
-				privateChatUsers.put(selectedValue, textArea2);
-				write("PRIVATE_CHAT_INITIATE_" + selectedValue + " " + textField2.getText());
+				makePrivateChat(selectedValue);
+				write(MessageType.PRIVATE_CHAT_INITIATE + "|" + selectedValue);
 			}
 		});
 
 		return panel;
+	}
+	
+	private void makePrivateChat(String otherUser) {
+		JPanel textPanel2 = new JPanel();
+		JTextField textField2 = new JTextField(40);
+		JTextArea textArea2 = new JTextArea(8, 40);
+		BoxLayout grid = new BoxLayout(textPanel2, BoxLayout.Y_AXIS);
+		textPanel2.setLayout(grid);
+		textPanel2.add(new JScrollPane(textArea2));
+		textPanel2.add(textField2);
+
+		textField2.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				write(MessageType.PRIVATE_CHAT_SEND + "|" + name + "|" + otherUser + "|" + textField2.getText());
+				textArea2.append(name + ": " + textField2.getText() + "\n");
+				textField2.setText("");
+			}
+		});
+
+		tabbedPane.addTab(otherUser, textPanel2);
+		privateChatUsers.put(otherUser, textArea2);
 	}
 
 	private String getName() {
@@ -182,33 +184,17 @@ public class ChatClient {
 					break;
 				case PRIVATE_CHAT_INITIATE:
 					String otherUser = line.substring(MessageType.PRIVATE_CHAT_INITIATE.name().length() + 1);
-					//System.out.println("PRIV " + otherUser + " PRIVCHAT: " + privateChatUsers);
 					if (!privateChatUsers.keySet().contains(otherUser)) {
-						JPanel textPanel2 = new JPanel();
-						JTextField textField2 = new JTextField(40);
-						JTextArea textArea2 = new JTextArea(8, 40);
-						BoxLayout grid = new BoxLayout(textPanel2, BoxLayout.Y_AXIS);
-						textPanel2.setLayout(grid);
-						textPanel2.add(new JScrollPane(textArea2));
-						textPanel2.add(textField2);
-
-						textField2.addActionListener(new ActionListener() {
-							public void actionPerformed(ActionEvent e) {
-								write(MessageType.PRIVATE_CHAT_SEND + "|" + name + "|" + otherUser + " " + textField2.getText());
-								textArea2.append(name + ": " + textField2.getText() + "\n");
-								textField2.setText("");
-							}
-						});
-
-						tabbedPane.addTab(otherUser, textPanel2);
-						privateChatUsers.put(otherUser, textArea2);
+						makePrivateChat(otherUser);
 					}
 					break;
 				case PRIVATE_CHAT_RECEIVE:
-					String requestedPartner1 = line.substring(MessageType.PRIVATE_CHAT_RECEIVE.name().length() + 1, line.indexOf("|")).trim();
-					String sender = requestedPartner1.substring(0, requestedPartner1.indexOf("|"));
-					String receiver = requestedPartner1.substring(requestedPartner1.lastIndexOf("|") + 1);
-					String message = line.substring(line.indexOf(" "));
+					String typeRemoved = line.substring(line.indexOf("|") + 1);
+					String senderRemoved = typeRemoved.substring(typeRemoved.indexOf("|") + 1);
+					String message = senderRemoved.substring(typeRemoved.indexOf("|") + 1);
+					String sender = typeRemoved.substring(0,  typeRemoved.indexOf("|"));
+					String receiver = senderRemoved.substring(0, senderRemoved.indexOf("|"));
+					
 					System.out.println(message + " " + sender + " " + receiver + " " + privateChatUsers);
 					if (privateChatUsers.keySet().contains(sender)) {
 						System.out.println("message from " + receiver + " : " + message);
@@ -217,56 +203,6 @@ public class ChatClient {
 					}
 					break;
 				}
-//				if (line.startsWith("REQUESTNAME")) {
-//					name = getName();
-//					write(name);
-//					textField.requestFocus();
-//				} else if (line.startsWith("NAMEACCEPTED")) {
-//					textField.setEditable(true);
-//				} else if (line.startsWith("MESSAGE")) {
-//					textArea.append(line.substring(8) + "\n");
-//				} else if (line.startsWith("NAME")) {
-//					if (!model.contains(line.substring(5))) {
-//						model.addElement(line.substring(5));
-//					}
-//					System.out.println("Got message " + line);
-//				} else if (line.startsWith("REMOVENAME")) {
-//					model.removeElement(line.substring(11));
-//				} else if (line.startsWith("PRIVATE_CHAT_INITIATE_")) {
-//					String otherUser = line.substring("PRIVATE_CHAT_INITIATE_".length());
-//					System.out.println("PRIV " + otherUser + " PRIVCHAT: " + privateChatUsers);
-//					if (!privateChatUsers.keySet().contains(otherUser)) {
-//						JPanel textPanel2 = new JPanel();
-//						JTextField textField2 = new JTextField(40);
-//						JTextArea textArea2 = new JTextArea(8, 40);
-//						BoxLayout grid = new BoxLayout(textPanel2, BoxLayout.Y_AXIS);
-//						textPanel2.setLayout(grid);
-//						textPanel2.add(new JScrollPane(textArea2));
-//						textPanel2.add(textField2);
-//
-//						textField2.addActionListener(new ActionListener() {
-//							public void actionPerformed(ActionEvent e) {
-//								write("PRIVATE_CHAT_SEND_" + name + "_" + otherUser + " " + textField2.getText());
-//								textArea2.append(name + ": " + textField2.getText() + "\n");
-//								textField2.setText("");
-//							}
-//						});
-//
-//						tabbedPane.addTab(otherUser, textPanel2);
-//						privateChatUsers.put(otherUser, textArea2);
-//					}
-//				} else if (line.startsWith(MessageType.PRIVATE_CHAT_RECEIVE_.name())) {
-//					String requestedPartner1 = line.substring("PRIVATE_CHAT_RECEIVE_".length(), line.indexOf(" ")).trim();
-//					String sender = requestedPartner1.substring(0, requestedPartner1.indexOf("_"));
-//					String receiver = requestedPartner1.substring(requestedPartner1.lastIndexOf("_") + 1);
-//					String message = line.substring(line.indexOf(" "));
-//					System.out.println(message + " " + sender + " " + receiver + " " + privateChatUsers);
-//					if (privateChatUsers.keySet().contains(sender)) {
-//						System.out.println("message from " + receiver + " : " + message);
-//						JTextArea textArea = privateChatUsers.get(sender);
-//						textArea.append(sender + ": " + message + "\n");
-//					}
-//				}
 			}
 		}
 	}

@@ -7,7 +7,6 @@ import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Map.Entry;
 
@@ -16,8 +15,6 @@ import edu.umkc.csee5110.utils.Constants;
 
 public class ChatServer {
 
-	// private static HashSet<String> names = new HashSet<>();
-	// private static HashSet<PrintWriter> writers = new HashSet<>();
 	private static Map<String, PrintWriter> nameToWriter = new HashMap<>();
 
 	public static void main(String[] args) throws Exception {
@@ -85,19 +82,22 @@ public class ChatServer {
 					}
 					for (Entry<String, PrintWriter> entry : nameToWriter.entrySet()) {
 						if (in.startsWith(MessageType.PRIVATE_CHAT_INITIATE.name())) {
-							String requestedPartner = in.substring(MessageType.PRIVATE_CHAT_INITIATE.name().length()).trim();
+							String requestedPartner = in.substring(MessageType.PRIVATE_CHAT_INITIATE.name().length() + 1).trim();
 							if (requestedPartner.equals(entry.getKey())) {
-								entry.getValue().println(MessageType.PRIVATE_CHAT_INITIATE.name() + name);
+								entry.getValue().println(MessageType.PRIVATE_CHAT_INITIATE.name() + "|" + name);
 								break;
 							}
 							continue;
 						} else if (in.startsWith(MessageType.PRIVATE_CHAT_SEND.name())) {
-							String requestedPartner1 = in.substring(MessageType.PRIVATE_CHAT_SEND.name().length(), in.indexOf(" ")).trim();
-							String sender = requestedPartner1.substring(0, requestedPartner1.indexOf("_"));
-							String receiver = requestedPartner1.substring(requestedPartner1.lastIndexOf("_") + 1);
+							System.out.println("PCS " + in);
+							String typeRemoved = in.substring(in.indexOf("|") + 1);
+							String senderRemoved = typeRemoved.substring(typeRemoved.indexOf("|") + 1);
+							String message = senderRemoved.substring(typeRemoved.indexOf("|") + 1);
+							String sender = typeRemoved.substring(0,  typeRemoved.indexOf("|"));
+							String receiver = senderRemoved.substring(0, senderRemoved.indexOf("|"));
+							System.out.println(message + " " + sender + " " + receiver);
 							if (receiver.equals(entry.getKey())) {
-								String message = in.substring(in.indexOf(" "));
-								entry.getValue().println(MessageType.PRIVATE_CHAT_RECEIVE.name() + sender + "_" + receiver + " " + message);
+								entry.getValue().println(MessageType.PRIVATE_CHAT_RECEIVE.name() + "|" + sender + "|" + receiver + "|" + message);
 								break;
 							}
 							continue;
