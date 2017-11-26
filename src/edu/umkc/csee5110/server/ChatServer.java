@@ -80,6 +80,7 @@ public class ChatServer {
 						}
 						continue;
 					}
+
 					for (Entry<String, PrintWriter> entry : nameToWriter.entrySet()) {
 						if (in.startsWith(MessageType.PRIVATE_CHAT_INITIATE.name())) {
 							String requestedPartner = in.substring(MessageType.PRIVATE_CHAT_INITIATE.name().length() + 1).trim();
@@ -92,8 +93,8 @@ public class ChatServer {
 							System.out.println("PCS " + in);
 							String typeRemoved = in.substring(in.indexOf("|") + 1);
 							String senderRemoved = typeRemoved.substring(typeRemoved.indexOf("|") + 1);
-							String message = senderRemoved.substring(typeRemoved.indexOf("|") + 1);
-							String sender = typeRemoved.substring(0,  typeRemoved.indexOf("|"));
+							String message = senderRemoved.substring(senderRemoved.indexOf("|") + 1);
+							String sender = typeRemoved.substring(0, typeRemoved.indexOf("|"));
 							String receiver = senderRemoved.substring(0, senderRemoved.indexOf("|"));
 							System.out.println(message + " " + sender + " " + receiver);
 							if (receiver.equals(entry.getKey())) {
@@ -101,9 +102,36 @@ public class ChatServer {
 								break;
 							}
 							continue;
+						} else if (in.startsWith(MessageType.FILE_INITIATE.name())) {
+							// Send out FILE_REQUEST|sender|receier|fileName|size
+							String fileTypeRemoved = in.substring(in.indexOf("|") + 1);
+							String fileSenderRemoved = fileTypeRemoved.substring(fileTypeRemoved.indexOf("|") + 1);
+							String fileReceiverRemoved = fileSenderRemoved.substring(fileSenderRemoved.indexOf("|") + 1);
+							String fileSize = fileReceiverRemoved.substring(fileReceiverRemoved.indexOf("|") + 1);
+							String fileName = fileReceiverRemoved.substring(0,  fileReceiverRemoved.indexOf("|"));
+							String fileSender = fileTypeRemoved.substring(0,  fileTypeRemoved.indexOf("|"));
+							String fileReceiver = fileSenderRemoved.substring(0, fileSenderRemoved.indexOf("|"));
+							if (fileReceiver.equals(entry.getKey())) {
+								entry.getValue().println(MessageType.FILE_REQUEST.name() + "|" + fileSender + "|" + fileReceiver + "|" + fileName + "|" + fileSize);
+								System.out.println(fileName);	
+							}
+							// Get message from initiator.
+							continue;
+						} else if (in.startsWith(MessageType.FILE_OKAY.name())) {
+							String fileTypeRemoved = in.substring(in.indexOf("|") + 1);
+							String fileSenderRemoved = fileTypeRemoved.substring(fileTypeRemoved.indexOf("|") + 1);
+							String receiver = fileSenderRemoved.substring(0, fileSenderRemoved.indexOf("|"));
+							if (receiver.equals(entry.getKey())) {
+								entry.getValue().println(in);
+							}
+							//System.out.println(receiver);
+						} else if (in.startsWith(MessageType.FILE_SEND.name())) {
+							// Get file stream from sender.
+							continue;
 						}
 						if (in.startsWith("SEND_MESSAGE")) {
-							entry.getValue().println(MessageType.RECEIVE_MESSAGE.name() + "|" + name + "|" + in.substring(MessageType.SEND_MESSAGE.name().length() + 1));
+							entry.getValue().println(
+									MessageType.RECEIVE_MESSAGE.name() + "|" + name + "|" + in.substring(MessageType.SEND_MESSAGE.name().length() + 1));
 						}
 					}
 				}

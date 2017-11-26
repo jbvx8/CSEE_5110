@@ -7,6 +7,7 @@ import java.awt.event.ActionListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
@@ -17,7 +18,9 @@ import java.util.Map;
 import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
 import javax.swing.DefaultListModel;
+import javax.swing.JButton;
 import javax.swing.JComponent;
+import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JList;
 import javax.swing.JOptionPane;
@@ -118,15 +121,17 @@ public class ChatClient {
 
 		return panel;
 	}
-	
+
 	private void makePrivateChat(String otherUser) {
 		JPanel textPanel2 = new JPanel();
 		JTextField textField2 = new JTextField(40);
 		JTextArea textArea2 = new JTextArea(8, 40);
+		JButton sendFile = new JButton("Send File");
 		BoxLayout grid = new BoxLayout(textPanel2, BoxLayout.Y_AXIS);
 		textPanel2.setLayout(grid);
 		textPanel2.add(new JScrollPane(textArea2));
 		textPanel2.add(textField2);
+		textPanel2.add(sendFile);
 
 		textField2.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
@@ -134,6 +139,23 @@ public class ChatClient {
 				textArea2.append(name + ": " + textField2.getText() + "\n");
 				textField2.setText("");
 			}
+		});
+
+		JFileChooser fileChooser = new JFileChooser();
+		sendFile.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				int returnValue = fileChooser.showOpenDialog(sendFile);
+				if (returnValue == JFileChooser.APPROVE_OPTION) {
+					File file = fileChooser.getSelectedFile();
+					write(MessageType.FILE_INITIATE + "|" + name + "|" + otherUser + "|" + file.getName() + "|" + file.length());
+					System.out.println(MessageType.FILE_INITIATE + "|" + name + "|" + otherUser + "|" + file.getName() + "|" + file.length());
+				}
+				// write(MessageType.FILE_INITIATE)
+				// System.out.println("TURD");
+			}
+
 		});
 
 		tabbedPane.addTab(otherUser, textPanel2);
@@ -146,7 +168,7 @@ public class ChatClient {
 
 	private void run() throws IOException {
 		try (Socket socket = new Socket(Constants.SERVER_IP, Constants.SERVER_PORT)) {
-			
+
 			input = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 			output = new PrintWriter(socket.getOutputStream(), true);
 
@@ -156,7 +178,7 @@ public class ChatClient {
 				int delimiterLocation = line.indexOf("|") == -1 ? line.length() : line.indexOf("|");
 				String messageType = line.substring(0, delimiterLocation);
 				MessageType type = MessageType.valueOf(messageType);
-				
+
 				switch (type) {
 				case REQUESTNAME:
 					name = getName();
@@ -191,16 +213,34 @@ public class ChatClient {
 				case PRIVATE_CHAT_RECEIVE:
 					String typeRemoved = line.substring(line.indexOf("|") + 1);
 					String senderRemoved = typeRemoved.substring(typeRemoved.indexOf("|") + 1);
-					String message = senderRemoved.substring(typeRemoved.indexOf("|") + 1);
-					String sender = typeRemoved.substring(0,  typeRemoved.indexOf("|"));
+					String message = senderRemoved.substring(senderRemoved.indexOf("|") + 1);
+					String sender = typeRemoved.substring(0, typeRemoved.indexOf("|"));
 					String receiver = senderRemoved.substring(0, senderRemoved.indexOf("|"));
-					
+
 					System.out.println(message + " " + sender + " " + receiver + " " + privateChatUsers);
 					if (privateChatUsers.keySet().contains(sender)) {
 						System.out.println("message from " + receiver + " : " + message);
 						JTextArea textArea = privateChatUsers.get(sender);
 						textArea.append(sender + ": " + message + "\n");
 					}
+					break;
+				case FILE_REQUEST:
+					// FILE_REQUEST|sender|receiver|fileName|bytes
+					String fileTypeRemoved = line.substring(line.indexOf("|") + 1);
+					String fileSenderRemoved = fileTypeRemoved.substring(fileTypeRemoved.indexOf("|") + 1);
+					String fileReceiverRemoved = fileSenderRemoved.substring(fileSenderRemoved.indexOf("|") + 1);
+					String fileSize = fileReceiverRemoved.substring(fileReceiverRemoved.indexOf("|") + 1);
+					String fileName = fileReceiverRemoved.substring(0, fileReceiverRemoved.indexOf("|"));
+					String fileSender = fileTypeRemoved.substring(0, fileTypeRemoved.indexOf("|"));
+					String fileReceiver = fileSenderRemoved.substring(0, fileSenderRemoved.indexOf("|"));
+					int result = JOptionPane.showConfirmDialog(frame,
+							"Do you wish to accept " + fileName + " of " + fileSize + " bytes from " + fileSender, "File Accept",
+							JOptionPane.YES_NO_OPTION);
+					
+					write(MessageType.FILE_OKAY + "|" + fileReceiver + "|" + fileSender + "|" + fileName + "|" + result);
+					break;
+				case FILE_OKAY:
+					// should trigger file send
 					break;
 				}
 			}
@@ -222,28 +262,28 @@ public class ChatClient {
 		client.frame.setVisible(true);
 		client.run();
 	}
-	
+
 	private static int ordinalIndexOf(String str, String searchStr, int ordinal, boolean lastIndex) {
-        if (str == null || searchStr == null || ordinal <= 0) {
-            return -1;
-        }
-        if (searchStr.length() == 0) {
-            return lastIndex ? str.length() : 0;
-        }
-        int found = 0;
-        int index = lastIndex ? str.length() : -1;
-        do {
-            if(lastIndex) {
-                index = str.lastIndexOf(searchStr, index - 1);
-            } else {
-                index = str.indexOf(searchStr, index + 1);
-            }
-            if (index < 0) {
-                return index;
-            }
-            found++;
-        } while (found < ordinal);
-        return index;
-    }
+		if (str == null || searchStr == null || ordinal <= 0) {
+			return -1;
+		}
+		if (searchStr.length() == 0) {
+			return lastIndex ? str.length() : 0;
+		}
+		int found = 0;
+		int index = lastIndex ? str.length() : -1;
+		do {
+			if (lastIndex) {
+				index = str.lastIndexOf(searchStr, index - 1);
+			} else {
+				index = str.indexOf(searchStr, index + 1);
+			}
+			if (index < 0) {
+				return index;
+			}
+			found++;
+		} while (found < ordinal);
+		return index;
+	}
 
 }
