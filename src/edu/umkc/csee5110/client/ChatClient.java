@@ -30,6 +30,7 @@ import javax.swing.JTabbedPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 
+import edu.umkc.csee5110.FileTransferModel;
 import edu.umkc.csee5110.MessageType;
 import edu.umkc.csee5110.utils.Constants;
 
@@ -44,6 +45,7 @@ public class ChatClient {
 	JTabbedPane tabbedPane = new JTabbedPane();
 	DefaultListModel<String> model = new DefaultListModel<String>();
 	Map<String, JTextArea> privateChatUsers = new HashMap<>();
+	Map<String, FileTransferModel> fileToModelMap = new HashMap<>();
 
 	public ChatClient() {
 		frame.pack();
@@ -149,6 +151,8 @@ public class ChatClient {
 				int returnValue = fileChooser.showOpenDialog(sendFile);
 				if (returnValue == JFileChooser.APPROVE_OPTION) {
 					File file = fileChooser.getSelectedFile();
+					//fileToUserMap.put(otherUser, file);
+					fileToModelMap.put(file.getName(), new FileTransferModel(file, otherUser));
 					write(MessageType.FILE_INITIATE + "|" + name + "|" + otherUser + "|" + file.getName() + "|" + file.length());
 					System.out.println(MessageType.FILE_INITIATE + "|" + name + "|" + otherUser + "|" + file.getName() + "|" + file.length());
 				}
@@ -224,7 +228,7 @@ public class ChatClient {
 						textArea.append(sender + ": " + message + "\n");
 					}
 					break;
-				case FILE_REQUEST:
+				case FILE_REQUEST: {
 					// FILE_REQUEST|sender|receiver|fileName|bytes
 					String fileTypeRemoved = line.substring(line.indexOf("|") + 1);
 					String fileSenderRemoved = fileTypeRemoved.substring(fileTypeRemoved.indexOf("|") + 1);
@@ -236,11 +240,27 @@ public class ChatClient {
 					int result = JOptionPane.showConfirmDialog(frame,
 							"Do you wish to accept " + fileName + " of " + fileSize + " bytes from " + fileSender, "File Accept",
 							JOptionPane.YES_NO_OPTION);
-					
-					write(MessageType.FILE_OKAY + "|" + fileReceiver + "|" + fileSender + "|" + fileName + "|" + result);
+
+					write(MessageType.FILE_OKAY + "|" + fileReceiver + "|" + fileSender + "|" + fileName + "|" + (result == 0 ? "YES" : "NO"));
+
 					break;
-				case FILE_OKAY:
+				}
+				case FILE_OKAY: {
+					// FILE_OKAY|sender|receiver|fileName|result
 					// should trigger file send
+					String fileTypeRemoved = line.substring(line.indexOf("|") + 1);
+					String fileSenderRemoved = fileTypeRemoved.substring(fileTypeRemoved.indexOf("|") + 1);
+					String fileReceiverRemoved = fileSenderRemoved.substring(fileSenderRemoved.indexOf("|") + 1);
+					String fileResult = fileReceiverRemoved.substring(fileReceiverRemoved.indexOf("|") + 1);
+					String fileName = fileReceiverRemoved.substring(0, fileReceiverRemoved.indexOf("|"));
+					String fileSender = fileTypeRemoved.substring(0, fileTypeRemoved.indexOf("|"));
+					String fileReceiver = fileSenderRemoved.substring(0, fileSenderRemoved.indexOf("|"));
+					if ("YES".equals(fileResult)) {
+						
+					} else {
+						fileToModelMap.remove(fileName);
+					}
+				}
 					break;
 				}
 			}
