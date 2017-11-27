@@ -6,8 +6,11 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
+import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
+import java.io.DataOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
@@ -258,7 +261,25 @@ public class ChatClient {
 					String fileSender = fileTypeRemoved.substring(0, fileTypeRemoved.indexOf("|"));
 					String fileReceiver = fileSenderRemoved.substring(0, fileSenderRemoved.indexOf("|"));
 					if ("YES".equals(fileResult)) {
+						Socket fileSocket = new Socket(Constants.SERVER_IP, Constants.SERVER_PORT);
+						//input = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+						//output = new PrintWriter(socket.getOutputStream(), true);
+						//DataOutputStream fileOut = new DataOutputStream(new BufferedOutputStream(fileSocket.getOutputStream()));
+					    //DataInputStream fileIn = new DataInputStream(new BufferedInputStream(fileSocket.getInputStream()));
+						PrintWriter fileStringOut = new PrintWriter(fileSocket.getOutputStream(), true);
+						fileStringOut.println(MessageType.FILE_SEND + "|" + fileSender + "|" + fileReceiver + "|" + fileName + "|" + fileToModelMap.get(fileName).getFile().length());
 						
+						FileInputStream fileIn = new FileInputStream(fileToModelMap.get(fileName).getFile());
+						DataOutputStream fileOut = new DataOutputStream(new BufferedOutputStream(fileSocket.getOutputStream()));
+						byte[] buffer = new byte[16384];
+
+						int byteRead;
+						while ((byteRead = fileIn.read(buffer, 0, buffer.length)) != -1) {
+						  fileOut.write(buffer, 0, byteRead);
+						}
+
+						fileOut.flush();
+						//FileOutputStream fileOut = new FileOutputStream()
 					} else {
 						fileToModelMap.remove(fileName);
 					}

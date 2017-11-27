@@ -1,6 +1,10 @@
 package edu.umkc.csee5110.server;
 
+import java.io.BufferedInputStream;
 import java.io.BufferedReader;
+import java.io.DataInputStream;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
@@ -16,6 +20,7 @@ import edu.umkc.csee5110.utils.Constants;
 public class ChatServer {
 
 	private static Map<String, PrintWriter> nameToWriter = new HashMap<>();
+	private static Map<String, Socket> other = new HashMap<>();
 
 	public static void main(String[] args) throws Exception {
 		System.out.println("The server is listening at port " + Constants.SERVER_PORT);
@@ -42,32 +47,34 @@ public class ChatServer {
 			try (BufferedReader input = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 					PrintWriter output = new PrintWriter(socket.getOutputStream(), true)) {
 				String in = input.readLine();
-//				while (true) {
-//					output.println(MessageType.REQUESTNAME);
-//					name = input.readLine();
-//					if (name == null) {
-//						return;
-//					}
-//					if (nameToWriter.get(name) == null) {
-//						break;
-//					}
-//				}
-
-//				output.println(MessageType.NAMEACCEPTED);
-//				System.out.println("Putting " + name + " with " + output);
-//				nameToWriter.put(name, output);
-//
-//				for (Entry<String, PrintWriter> entry : nameToWriter.entrySet()) {
-//					for (String n : nameToWriter.keySet()) {
-//						entry.getValue().println(MessageType.ADD_NAME.name() + "|" + n);
-//						System.out.println("Sending ADD_NAME " + n + " to " + entry.getValue());
-//					}
-//				}
 
 				System.out.println(in);
 				do {
 					if (in == null) {
 						return;
+					}
+					if (in.startsWith(MessageType.FILE_SEND.name())) {
+						String fileTypeRemoved = in.substring(in.indexOf("|") + 1);
+						String fileSenderRemoved = fileTypeRemoved.substring(fileTypeRemoved.indexOf("|") + 1);
+						String fileReceiverRemoved = fileSenderRemoved.substring(fileSenderRemoved.indexOf("|") + 1);
+						String fileSize = fileReceiverRemoved.substring(fileReceiverRemoved.indexOf("|") + 1);
+						String fileName = fileReceiverRemoved.substring(0, fileReceiverRemoved.indexOf("|"));
+						String fileSender = fileTypeRemoved.substring(0, fileTypeRemoved.indexOf("|"));
+						String fileReceiver = fileSenderRemoved.substring(0, fileSenderRemoved.indexOf("|"));
+						
+						DataInputStream fileIn = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
+						File file = new File(fileName);
+						FileOutputStream fileOut = new FileOutputStream(file);
+						byte[] buffer = new byte[16384];
+
+						int byteRead;
+						while ((byteRead = fileIn.read(buffer, 0, buffer.length)) != -1) {
+						  fileOut.write(buffer, 0, byteRead);
+						}
+
+						fileOut.flush();
+						
+						continue;
 					}
 					if (in.startsWith(MessageType.NEWNAME.name())) {
 						name = in.substring(in.indexOf("|") + 1);
