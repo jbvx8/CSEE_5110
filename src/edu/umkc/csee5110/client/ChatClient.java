@@ -15,6 +15,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -267,18 +268,30 @@ public class ChatClient {
 						//DataOutputStream fileOut = new DataOutputStream(new BufferedOutputStream(fileSocket.getOutputStream()));
 					    //DataInputStream fileIn = new DataInputStream(new BufferedInputStream(fileSocket.getInputStream()));
 						PrintWriter fileStringOut = new PrintWriter(fileSocket.getOutputStream(), true);
-						fileStringOut.println(MessageType.FILE_SEND + "|" + fileSender + "|" + fileReceiver + "|" + fileName + "|" + fileToModelMap.get(fileName).getFile().length());
+						String outMessage = MessageType.FILE_SEND + "|" + fileSender + "|" + fileReceiver + "|" + fileName + "|" + fileToModelMap.get(fileName).getFile().length() + "\n";
+						StringBuilder builder = new StringBuilder(outMessage);
+						while (builder.length() < 8192) {
+							builder.append("-");
+						}
+						fileStringOut.print(builder.toString());
+						fileStringOut.flush();
 						
 						FileInputStream fileIn = new FileInputStream(fileToModelMap.get(fileName).getFile());
-						DataOutputStream fileOut = new DataOutputStream(new BufferedOutputStream(fileSocket.getOutputStream()));
+						DataOutputStream fileOut = new DataOutputStream(fileSocket.getOutputStream());
 						byte[] buffer = new byte[16384];
 
-						int byteRead;
-						while ((byteRead = fileIn.read(buffer, 0, buffer.length)) != -1) {
-						  fileOut.write(buffer, 0, byteRead);
+						int count;
+						while ((count = fileIn.read(buffer)) > 0) {
+						  fileOut.write(buffer, 0, count);
+						  System.out.println("Writing " + count + " " + Arrays.toString(buffer));
 						}
 
 						fileOut.flush();
+						System.out.println("flushed");
+						fileOut.close();
+						fileIn.close();
+						//fileIn.close();
+						//fileOut.close();
 						//FileOutputStream fileOut = new FileOutputStream()
 					} else {
 						fileToModelMap.remove(fileName);

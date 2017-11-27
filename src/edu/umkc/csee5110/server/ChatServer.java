@@ -10,6 +10,7 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -46,6 +47,7 @@ public class ChatServer {
 		public void run() {
 			try (BufferedReader input = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 					PrintWriter output = new PrintWriter(socket.getOutputStream(), true)) {
+				input.mark(1000);
 				String in = input.readLine();
 
 				System.out.println(in);
@@ -61,19 +63,22 @@ public class ChatServer {
 						String fileName = fileReceiverRemoved.substring(0, fileReceiverRemoved.indexOf("|"));
 						String fileSender = fileTypeRemoved.substring(0, fileTypeRemoved.indexOf("|"));
 						String fileReceiver = fileSenderRemoved.substring(0, fileSenderRemoved.indexOf("|"));
+						input.reset();
 						
-						DataInputStream fileIn = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
+						DataInputStream fileIn = new DataInputStream(socket.getInputStream());
 						File file = new File(fileName);
 						FileOutputStream fileOut = new FileOutputStream(file);
 						byte[] buffer = new byte[16384];
-
-						int byteRead;
-						while ((byteRead = fileIn.read(buffer, 0, buffer.length)) != -1) {
-						  fileOut.write(buffer, 0, byteRead);
+						int count;
+						while ((count = fileIn.read(buffer)) > 0) {
+						  fileOut.write(buffer, 0, count);
+						  System.out.println("Writing " + count + " " + Arrays.toString(buffer));
 						}
-
-						fileOut.flush();
 						
+						fileOut.flush();
+						System.out.println("flushed");
+						fileIn.close();
+						fileOut.close();
 						continue;
 					}
 					if (in.startsWith(MessageType.NEWNAME.name())) {
