@@ -1,18 +1,13 @@
 package edu.umkc.csee5110.server;
 
-import java.io.BufferedInputStream;
 import java.io.BufferedReader;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -23,7 +18,7 @@ import edu.umkc.csee5110.utils.Constants;
 public class ChatServer {
 
 	private static Map<String, PrintWriter> nameToWriter = new HashMap<>();
-	private static Map<String, DataOutputStream> other = new HashMap<>();
+	private static Map<String, DataOutputStream> fileKeyToDataStream = new HashMap<>();
 
 	public static void main(String[] args) throws Exception {
 		System.out.println("The server is listening at port " + Constants.SERVER_PORT);
@@ -68,10 +63,10 @@ public class ChatServer {
 						String fileName = fileReceiverRemoved.substring(0, fileReceiverRemoved.indexOf("|"));
 						String fileSender = fileTypeRemoved.substring(0, fileTypeRemoved.indexOf("|"));
 						String fileReceiver = fileSenderRemoved.substring(0, fileSenderRemoved.indexOf("|"));
-						//input.reset();
-						
+						// input.reset();
+
 						DataOutputStream fileOut = new DataOutputStream(socket.getOutputStream());
-						other.put(fileSender + "-" + fileReceiver + "-" + fileName + "-" + fileSize, fileOut);
+						fileKeyToDataStream.put(fileSender + "-" + fileReceiver + "-" + fileName + "-" + fileSize, fileOut);
 						System.out.println("FILE_RECEIVE: " + socket.getRemoteSocketAddress());
 						continue;
 					}
@@ -85,13 +80,14 @@ public class ChatServer {
 						String fileReceiver = fileSenderRemoved.substring(0, fileSenderRemoved.indexOf("|"));
 						System.out.println("FILE_SEND: " + fileReceiver + "-" + fileSender + "-" + fileName + "-" + fileSize);
 						input.reset();
-						
-						String outMessage = MessageType.FILE_RECEIVE.name() + "|" + fileReceiver + "|" + fileSender + "|" + fileName + "|" + fileSize + "\n";
+
+						String outMessage = MessageType.FILE_RECEIVE.name() + "|" + fileReceiver + "|" + fileSender + "|" + fileName + "|" + fileSize
+								+ "\n";
 						StringBuilder builder = new StringBuilder(outMessage);
 						while (builder.length() < 8192) {
 							builder.append("-");
 						}
-						
+
 						for (Entry<String, PrintWriter> entry : nameToWriter.entrySet()) {
 							if (fileReceiver.equals(entry.getKey())) {
 								entry.getValue().write(outMessage);
@@ -101,37 +97,22 @@ public class ChatServer {
 							}
 						}
 
-						// get corrrect receiver
-						//fileStringOut.print(builder.toString());
-						//fileStringOut.flush();
-						
-						DataOutputStream otherOut = other.get(fileReceiver + "-" + fileSender + "-" + fileName + "-" + fileSize);
+						DataOutputStream otherOut = fileKeyToDataStream.get(fileReceiver + "-" + fileSender + "-" + fileName + "-" + fileSize);
 						while (otherOut == null) {
-							otherOut = other.get(fileReceiver + "-" + fileSender + "-" + fileName + "-" + fileSize);
+							otherOut = fileKeyToDataStream.get(fileReceiver + "-" + fileSender + "-" + fileName + "-" + fileSize);
 						}
-						System.out.println("getting otherout " + otherOut);
-						
-						DataInputStream fileIn = new DataInputStream(socket.getInputStream());
-						//System.out.println(socket.getRemoteSocketAddress());
-						//File file = new File(fileName);
-						//FileOutputStream fileOut = new FileOutputStream(file);
-						byte[] buffer = new byte[16384];
-						int count;
-						while ((count = fileIn.read(buffer)) > 0) {
-							otherOut.write(buffer, 0, count);
-						  System.out.println("Writing " + count + " " + Arrays.toString(buffer));
+
+						try (DataInputStream fileIn = new DataInputStream(socket.getInputStream())) {
+							byte[] buffer = new byte[16384];
+							int count;
+							while ((count = fileIn.read(buffer)) > 0) {
+								otherOut.write(buffer, 0, count);
+							}
 						}
-						
+
 						otherOut.flush();
-						System.out.println("flushed");
-						try {
-							Thread.sleep(5000);
-						} catch (InterruptedException e) {
-							// TODO Auto-generated catch block
-							e.printStackTrace();
-						}
-						fileIn.close();
 						otherOut.close();
+						fileKeyToDataStream.remove(fileReceiver + "-" + fileSender + "-" + fileName + "-" + fileSize);
 						return;
 					}
 					if (in.startsWith(MessageType.NEWNAME.name())) {
@@ -140,7 +121,7 @@ public class ChatServer {
 							return;
 						}
 						if (nameToWriter.get(name) != null) {
-							//send error
+							// send error
 							continue;
 						}
 						output.println(MessageType.NAMEACCEPTED);
@@ -188,19 +169,18 @@ public class ChatServer {
 							}
 							continue;
 						} else if (in.startsWith(MessageType.FILE_INITIATE.name())) {
-							// Send out FILE_REQUEST|sender|receier|fileName|size
 							String fileTypeRemoved = in.substring(in.indexOf("|") + 1);
 							String fileSenderRemoved = fileTypeRemoved.substring(fileTypeRemoved.indexOf("|") + 1);
 							String fileReceiverRemoved = fileSenderRemoved.substring(fileSenderRemoved.indexOf("|") + 1);
 							String fileSize = fileReceiverRemoved.substring(fileReceiverRemoved.indexOf("|") + 1);
-							String fileName = fileReceiverRemoved.substring(0,  fileReceiverRemoved.indexOf("|"));
-							String fileSender = fileTypeRemoved.substring(0,  fileTypeRemoved.indexOf("|"));
+							String fileName = fileReceiverRemoved.substring(0, fileReceiverRemoved.indexOf("|"));
+							String fileSender = fileTypeRemoved.substring(0, fileTypeRemoved.indexOf("|"));
 							String fileReceiver = fileSenderRemoved.substring(0, fileSenderRemoved.indexOf("|"));
 							if (fileReceiver.equals(entry.getKey())) {
-								entry.getValue().println(MessageType.FILE_REQUEST.name() + "|" + fileSender + "|" + fileReceiver + "|" + fileName + "|" + fileSize);
-								System.out.println(fileName);	
+								entry.getValue().println(
+										MessageType.FILE_REQUEST.name() + "|" + fileSender + "|" + fileReceiver + "|" + fileName + "|" + fileSize);
+								System.out.println(fileName);
 							}
-							// Get message from initiator.
 							continue;
 						} else if (in.startsWith(MessageType.FILE_OKAY.name())) {
 							String fileTypeRemoved = in.substring(in.indexOf("|") + 1);
@@ -209,17 +189,12 @@ public class ChatServer {
 							if (receiver.equals(entry.getKey())) {
 								entry.getValue().println(in);
 							}
-							//System.out.println(receiver);
-						} else if (in.startsWith(MessageType.FILE_SEND.name())) {
-							// Get file stream from sender.
-							continue;
 						}
-						if (in.startsWith("SEND_MESSAGE")) {
+						if (in.startsWith(MessageType.SEND_MESSAGE.name())) {
 							entry.getValue().println(
 									MessageType.RECEIVE_MESSAGE.name() + "|" + name + "|" + in.substring(MessageType.SEND_MESSAGE.name().length() + 1));
 						}
 					}
-					//in = input.readLine();
 				} while (true);
 			} catch (IOException e) {
 				System.out.println(e);
