@@ -8,9 +8,11 @@ import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
+import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
@@ -155,7 +157,7 @@ public class ChatClient {
 				int returnValue = fileChooser.showOpenDialog(sendFile);
 				if (returnValue == JFileChooser.APPROVE_OPTION) {
 					File file = fileChooser.getSelectedFile();
-					//fileToUserMap.put(otherUser, file);
+					// fileToUserMap.put(otherUser, file);
 					fileToModelMap.put(file.getName(), new FileTransferModel(file, otherUser));
 					write(MessageType.FILE_INITIATE + "|" + name + "|" + otherUser + "|" + file.getName() + "|" + file.length());
 					System.out.println(MessageType.FILE_INITIATE + "|" + name + "|" + otherUser + "|" + file.getName() + "|" + file.length());
@@ -179,7 +181,7 @@ public class ChatClient {
 
 			input = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 			output = new PrintWriter(socket.getOutputStream(), true);
-			
+
 			name = getName();
 			write(MessageType.NEWNAME.name() + "|" + name);
 			textField.requestFocus();
@@ -263,38 +265,90 @@ public class ChatClient {
 					String fileReceiver = fileSenderRemoved.substring(0, fileSenderRemoved.indexOf("|"));
 					if ("YES".equals(fileResult)) {
 						Socket fileSocket = new Socket(Constants.SERVER_IP, Constants.SERVER_PORT);
-						//input = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-						//output = new PrintWriter(socket.getOutputStream(), true);
-						//DataOutputStream fileOut = new DataOutputStream(new BufferedOutputStream(fileSocket.getOutputStream()));
-					    //DataInputStream fileIn = new DataInputStream(new BufferedInputStream(fileSocket.getInputStream()));
+						// input = new BufferedReader(new
+						// InputStreamReader(socket.getInputStream()));
+						// output = new PrintWriter(socket.getOutputStream(),
+						// true);
+						// DataOutputStream fileOut = new DataOutputStream(new
+						// BufferedOutputStream(fileSocket.getOutputStream()));
+						// DataInputStream fileIn = new DataInputStream(new
+						// BufferedInputStream(fileSocket.getInputStream()));
 						PrintWriter fileStringOut = new PrintWriter(fileSocket.getOutputStream(), true);
-						String outMessage = MessageType.FILE_SEND + "|" + fileSender + "|" + fileReceiver + "|" + fileName + "|" + fileToModelMap.get(fileName).getFile().length() + "\n";
+						String outMessage = MessageType.FILE_SEND + "|" + fileReceiver + "|" + fileSender + "|" + fileName + "|"
+								+ fileToModelMap.get(fileName).getFile().length() + "\n";
 						StringBuilder builder = new StringBuilder(outMessage);
 						while (builder.length() < 8192) {
 							builder.append("-");
 						}
 						fileStringOut.print(builder.toString());
 						fileStringOut.flush();
-						
+
 						FileInputStream fileIn = new FileInputStream(fileToModelMap.get(fileName).getFile());
 						DataOutputStream fileOut = new DataOutputStream(fileSocket.getOutputStream());
 						byte[] buffer = new byte[16384];
 
 						int count;
 						while ((count = fileIn.read(buffer)) > 0) {
-						  fileOut.write(buffer, 0, count);
-						  System.out.println("Writing " + count + " " + Arrays.toString(buffer));
+							fileOut.write(buffer, 0, count);
+							System.out.println("Writing " + count + " " + Arrays.toString(buffer));
 						}
 
 						fileOut.flush();
 						System.out.println("flushed");
 						fileOut.close();
 						fileIn.close();
-						//fileIn.close();
-						//fileOut.close();
-						//FileOutputStream fileOut = new FileOutputStream()
+						// fileIn.close();
+						// fileOut.close();
+						// FileOutputStream fileOut = new FileOutputStream()
 					} else {
 						fileToModelMap.remove(fileName);
+					}
+				}
+					break;
+				case FILE_RECEIVE: {
+					String fileTypeRemoved = line.substring(line.indexOf("|") + 1);
+					String fileSenderRemoved = fileTypeRemoved.substring(fileTypeRemoved.indexOf("|") + 1);
+					String fileReceiverRemoved = fileSenderRemoved.substring(fileSenderRemoved.indexOf("|") + 1);
+					String fileSize = fileReceiverRemoved.substring(fileReceiverRemoved.indexOf("|") + 1);
+					String fileName = fileReceiverRemoved.substring(0, fileReceiverRemoved.indexOf("|"));
+					String fileSender = fileTypeRemoved.substring(0, fileTypeRemoved.indexOf("|"));
+					String fileReceiver = fileSenderRemoved.substring(0, fileSenderRemoved.indexOf("|"));
+					if (Integer.parseInt(fileSize) > 0) {
+						try (Socket fileSocket = new Socket(Constants.SERVER_IP, Constants.SERVER_PORT)) {
+							System.out.println(socket.getRemoteSocketAddress());
+							System.out.println(socket.getInetAddress());
+							System.out.println(fileSocket.getRemoteSocketAddress());
+							System.out.println(fileSocket.getInetAddress());
+
+							PrintWriter fileStringOut = new PrintWriter(fileSocket.getOutputStream(), true);
+							String outMessage = MessageType.FILE_RECEIVE + "|" + fileSender + "|" + fileReceiver + "|" + fileName + "|" + fileSize + "\n";
+							StringBuilder builder = new StringBuilder(outMessage);
+							while (builder.length() < 8192) {
+								builder.append("-");
+							}
+							fileStringOut.print(builder.toString());
+							fileStringOut.flush();
+
+							DataInputStream fileIn = new DataInputStream(fileSocket.getInputStream());
+							//System.out.println("datastream: " + socket.getOutputStream());
+							File file = new File("test-" + fileName);
+							FileOutputStream fileOut = new FileOutputStream(file);
+							byte[] buffer = new byte[16384];
+							int count;
+							boolean cont = true;
+							while (cont) {
+								System.out.println("nothing to read");
+								while ((count = fileIn.read(buffer)) > 0) {
+									fileOut.write(buffer, 0, count);
+									System.out.println("Writing " + count + " " + Arrays.toString(buffer));
+									cont = false;
+								}
+								fileOut.flush();
+							}
+							System.out.println("flushed");
+							fileIn.close();
+							fileOut.close();
+						}
 					}
 				}
 					break;
