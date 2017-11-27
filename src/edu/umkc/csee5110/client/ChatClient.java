@@ -120,7 +120,7 @@ public class ChatClient {
 					return;
 				}
 
-				makePrivateChat(selectedValue);
+				makePrivateChat(selectedValue, true);
 				write(MessageType.PRIVATE_CHAT_INITIATE + "|" + selectedValue);
 			}
 		});
@@ -128,7 +128,7 @@ public class ChatClient {
 		return panel;
 	}
 
-	private void makePrivateChat(String otherUser) {
+	private void makePrivateChat(String otherUser, boolean switchFocus) {
 		JPanel textPanel2 = new JPanel();
 		JTextField textField2 = new JTextField(40);
 		JTextArea textArea2 = new JTextArea(8, 40);
@@ -164,6 +164,9 @@ public class ChatClient {
 		});
 
 		tabbedPane.addTab(otherUser, textPanel2);
+		if (switchFocus) {
+			tabbedPane.setSelectedComponent(textPanel2);
+		}
 		privateChatUsers.put(otherUser, textArea2);
 	}
 
@@ -214,7 +217,7 @@ public class ChatClient {
 				case PRIVATE_CHAT_INITIATE:
 					String otherUser = line.substring(MessageType.PRIVATE_CHAT_INITIATE.name().length() + 1);
 					if (!privateChatUsers.keySet().contains(otherUser)) {
-						makePrivateChat(otherUser);
+						makePrivateChat(otherUser, false);
 					}
 					break;
 				case PRIVATE_CHAT_RECEIVE:
