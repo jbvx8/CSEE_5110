@@ -1,6 +1,7 @@
 package edu.umkc.csee5110.client;
 
 import java.awt.BorderLayout;
+import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -44,8 +45,8 @@ public class ChatClient {
 	BufferedReader input;
 	PrintWriter output;
 	JFrame frame = new JFrame("Chat Client");
-	JTextField textField = new JTextField(40);
-	JTextArea textArea = new JTextArea(8, 40);
+	JTextField textField = new JTextField(1);
+	JTextArea textArea = new JTextArea(25, 40);
 	JTabbedPane tabbedPane = new JTabbedPane();
 	DefaultListModel<String> model = new DefaultListModel<String>();
 	Map<String, JTextArea> privateChatUsers = new HashMap<>();
@@ -182,6 +183,7 @@ public class ChatClient {
 
 			name = getName();
 			write(MessageType.NEWNAME.name() + "|" + name);
+			tabbedPane.setTitleAt(0, "Public (" + name + ")");
 			textField.requestFocus();
 
 			while (true) {
@@ -229,9 +231,15 @@ public class ChatClient {
 
 					System.out.println(message + " " + sender + " " + receiver + " " + privateChatUsers);
 					if (privateChatUsers.keySet().contains(sender)) {
-						System.out.println("message from " + receiver + " : " + message);
 						JTextArea textArea = privateChatUsers.get(sender);
 						textArea.append(sender + ": " + message + "\n");
+						Container panel = textArea.getParent().getParent().getParent();
+						if (panel.hasFocus()) {
+							System.out.println("TEST");
+						}
+//						if (tabbedPane.getSelectedComponent(). panel) {
+//							System.out.println("TRUE");
+//						}
 					}
 					break;
 				case FILE_REQUEST: {
@@ -299,7 +307,7 @@ public class ChatClient {
 					String fileName = fileReceiverRemoved.substring(0, fileReceiverRemoved.indexOf("|"));
 					String fileSender = fileTypeRemoved.substring(0, fileTypeRemoved.indexOf("|"));
 					String fileReceiver = fileSenderRemoved.substring(0, fileSenderRemoved.indexOf("|"));
-					if (Integer.parseInt(fileSize) > 0) {
+					if (Long.parseLong(fileSize) > 0) {
 						try (Socket fileSocket = new Socket(Constants.SERVER_IP, Constants.SERVER_PORT)) {
 							System.out.println(socket.getRemoteSocketAddress());
 							System.out.println(socket.getInetAddress());
@@ -323,14 +331,30 @@ public class ChatClient {
 							byte[] buffer = new byte[16384];
 							int count;
 							boolean cont = true;
+							long totalBytes = 0;
+							long start = System.currentTimeMillis();
+							int mod = 5;
 							while (cont) {
 								System.out.println("nothing to read");
 								while ((count = fileIn.read(buffer)) > 0) {
 									fileOut.write(buffer, 0, count);
+									totalBytes += count;
 									// System.out.println("Writing " + count + "
 									// " + Arrays.toString(buffer));
 									cont = false;
+									double completePercent = ((1.0 * totalBytes) / Long.parseLong(fileSize));
+//									if ( completePercent > mod) {
+//										privateChatUsers.get(fileReceiver).append(fileName + " from " + fileSender + " is " + ((int) (completePercent * 100)) + "% complete.\n");
+//										mod += 0.2;
+//									}
+									long timeDiff = (System.currentTimeMillis() - start) / 1000;
+									if (timeDiff == mod) {
+										System.out.println(timeDiff + " tb " + totalBytes + " fs " + Long.parseLong(fileSize));
+										privateChatUsers.get(fileReceiver).append(fileName + " from " + fileSender + " is " + ((int) (completePercent * 100)) + "% complete.\n");
+										mod += 5;
+									}
 								}
+								privateChatUsers.get(fileReceiver).append(fileName + " from " + fileSender + " is 100% complete.\n");
 								fileOut.flush();
 							}
 							System.out.println("flushed");
@@ -347,7 +371,7 @@ public class ChatClient {
 
 	public JTabbedPane createNewPane() {
 		JComponent publicPanel = makePublicTab();
-		tabbedPane.add("Public Chat (" + name + ")", publicPanel);
+		tabbedPane.add("Public", publicPanel);
 		return tabbedPane;
 	}
 
