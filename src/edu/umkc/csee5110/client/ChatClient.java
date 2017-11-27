@@ -175,20 +175,22 @@ public class ChatClient {
 
 			input = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 			output = new PrintWriter(socket.getOutputStream(), true);
+			
+			name = getName();
+			write(MessageType.NEWNAME.name() + "|" + name);
+			textField.requestFocus();
 
 			while (true) {
 				String line = input.readLine();
+				if (line == null) {
+					continue;
+				}
 				System.out.println(line);
 				int delimiterLocation = line.indexOf("|") == -1 ? line.length() : line.indexOf("|");
 				String messageType = line.substring(0, delimiterLocation);
 				MessageType type = MessageType.valueOf(messageType);
 
 				switch (type) {
-				case REQUESTNAME:
-					name = getName();
-					write(name);
-					textField.requestFocus();
-					break;
 				case NAMEACCEPTED:
 					textField.setEditable(true);
 					break;

@@ -18,7 +18,7 @@ public class ChatServer {
 	private static Map<String, PrintWriter> nameToWriter = new HashMap<>();
 
 	public static void main(String[] args) throws Exception {
-		System.out.println("The server is listenting at port " + Constants.SERVER_PORT);
+		System.out.println("The server is listening at port " + Constants.SERVER_PORT);
 		ServerSocket listener = new ServerSocket(Constants.SERVER_PORT);
 		try {
 			while (true) {
@@ -41,33 +41,53 @@ public class ChatServer {
 		public void run() {
 			try (BufferedReader input = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 					PrintWriter output = new PrintWriter(socket.getOutputStream(), true)) {
+				String in = input.readLine();
+//				while (true) {
+//					output.println(MessageType.REQUESTNAME);
+//					name = input.readLine();
+//					if (name == null) {
+//						return;
+//					}
+//					if (nameToWriter.get(name) == null) {
+//						break;
+//					}
+//				}
 
-				while (true) {
-					output.println(MessageType.REQUESTNAME);
-					name = input.readLine();
-					if (name == null) {
-						return;
-					}
-					if (nameToWriter.get(name) == null) {
-						break;
-					}
-				}
+//				output.println(MessageType.NAMEACCEPTED);
+//				System.out.println("Putting " + name + " with " + output);
+//				nameToWriter.put(name, output);
+//
+//				for (Entry<String, PrintWriter> entry : nameToWriter.entrySet()) {
+//					for (String n : nameToWriter.keySet()) {
+//						entry.getValue().println(MessageType.ADD_NAME.name() + "|" + n);
+//						System.out.println("Sending ADD_NAME " + n + " to " + entry.getValue());
+//					}
+//				}
 
-				output.println(MessageType.NAMEACCEPTED);
-				System.out.println("Putting " + name + " with " + output);
-				nameToWriter.put(name, output);
-
-				for (Entry<String, PrintWriter> entry : nameToWriter.entrySet()) {
-					for (String n : nameToWriter.keySet()) {
-						entry.getValue().println(MessageType.ADD_NAME.name() + "|" + n);
-						System.out.println("Sending ADD_NAME " + n + " to " + entry.getValue());
-					}
-				}
-
-				while (true) {
-					String in = input.readLine();
+				System.out.println(in);
+				do {
 					if (in == null) {
 						return;
+					}
+					if (in.startsWith(MessageType.NEWNAME.name())) {
+						name = in.substring(in.indexOf("|") + 1);
+						if (name == null) {
+							return;
+						}
+						if (nameToWriter.get(name) != null) {
+							//send error
+							continue;
+						}
+						output.println(MessageType.NAMEACCEPTED);
+						System.out.println("Putting " + name + " with " + output);
+						nameToWriter.put(name, output);
+
+						for (Entry<String, PrintWriter> entry : nameToWriter.entrySet()) {
+							for (String n : nameToWriter.keySet()) {
+								entry.getValue().println(MessageType.ADD_NAME.name() + "|" + n);
+								System.out.println("Sending ADD_NAME " + n + " to " + entry.getValue());
+							}
+						}
 					}
 					if (in.startsWith(MessageType.ADD_NAME.name())) {
 						String name = in.substring(MessageType.ADD_NAME.name().length() + 1);
@@ -134,7 +154,8 @@ public class ChatServer {
 									MessageType.RECEIVE_MESSAGE.name() + "|" + name + "|" + in.substring(MessageType.SEND_MESSAGE.name().length() + 1));
 						}
 					}
-				}
+					in = input.readLine();
+				} while (true);
 			} catch (IOException e) {
 				System.out.println(e);
 			} finally {
