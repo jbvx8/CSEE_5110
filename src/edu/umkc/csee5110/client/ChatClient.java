@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.net.UnknownHostException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -237,9 +238,9 @@ public class ChatClient {
 						if (panel.hasFocus()) {
 							System.out.println("TEST");
 						}
-//						if (tabbedPane.getSelectedComponent(). panel) {
-//							System.out.println("TRUE");
-//						}
+						// if (tabbedPane.getSelectedComponent(). panel) {
+						// System.out.println("TRUE");
+						// }
 					}
 					break;
 				case FILE_REQUEST: {
@@ -308,60 +309,81 @@ public class ChatClient {
 					String fileSender = fileTypeRemoved.substring(0, fileTypeRemoved.indexOf("|"));
 					String fileReceiver = fileSenderRemoved.substring(0, fileSenderRemoved.indexOf("|"));
 					if (Long.parseLong(fileSize) > 0) {
-						try (Socket fileSocket = new Socket(Constants.SERVER_IP, Constants.SERVER_PORT)) {
-							System.out.println(socket.getRemoteSocketAddress());
-							System.out.println(socket.getInetAddress());
-							System.out.println(fileSocket.getRemoteSocketAddress());
-							System.out.println(fileSocket.getInetAddress());
+						// try (Socket fileSocket = new
+						// Socket(Constants.SERVER_IP, Constants.SERVER_PORT)) {
+						//
+						// PrintWriter fileStringOut = new
+						// PrintWriter(fileSocket.getOutputStream(), true);
+						// String outMessage = MessageType.FILE_RECEIVE + "|" +
+						// fileSender + "|" + fileReceiver + "|" + fileName +
+						// "|" + fileSize + "\n";
+						// StringBuilder builder = new
+						// StringBuilder(outMessage);
+						// while (builder.length() < 8192) {
+						// builder.append("-");
+						// }
+						// fileStringOut.print(builder.toString());
+						// fileStringOut.flush();
 
-							PrintWriter fileStringOut = new PrintWriter(fileSocket.getOutputStream(), true);
-							String outMessage = MessageType.FILE_RECEIVE + "|" + fileSender + "|" + fileReceiver + "|" + fileName + "|" + fileSize + "\n";
-							StringBuilder builder = new StringBuilder(outMessage);
-							while (builder.length() < 8192) {
-								builder.append("-");
-							}
-							fileStringOut.print(builder.toString());
-							fileStringOut.flush();
+						Thread thread = new Thread(new Runnable() {
 
-							DataInputStream fileIn = new DataInputStream(fileSocket.getInputStream());
-							// System.out.println("datastream: " +
-							// socket.getOutputStream());
-							File file = new File("test-" + fileName);
-							FileOutputStream fileOut = new FileOutputStream(file);
-							byte[] buffer = new byte[16384];
-							int count;
-							boolean cont = true;
-							long totalBytes = 0;
-							long start = System.currentTimeMillis();
-							int mod = 5;
-							while (cont) {
-								System.out.println("nothing to read");
-								while ((count = fileIn.read(buffer)) > 0) {
-									fileOut.write(buffer, 0, count);
-									totalBytes += count;
-									// System.out.println("Writing " + count + "
-									// " + Arrays.toString(buffer));
-									cont = false;
-									double completePercent = ((1.0 * totalBytes) / Long.parseLong(fileSize));
-//									if ( completePercent > mod) {
-//										privateChatUsers.get(fileReceiver).append(fileName + " from " + fileSender + " is " + ((int) (completePercent * 100)) + "% complete.\n");
-//										mod += 0.2;
-//									}
-									long timeDiff = (System.currentTimeMillis() - start) / 1000;
-									if (timeDiff == mod) {
-										System.out.println(timeDiff + " tb " + totalBytes + " fs " + Long.parseLong(fileSize));
-										privateChatUsers.get(fileReceiver).append(fileName + " from " + fileSender + " is " + ((int) (completePercent * 100)) + "% complete.\n");
-										mod += 5;
+							@Override
+							public void run() {
+								try (Socket fileSocket = new Socket(Constants.SERVER_IP, Constants.SERVER_PORT)) {
+
+									PrintWriter fileStringOut = new PrintWriter(fileSocket.getOutputStream(), true);
+									String outMessage = MessageType.FILE_RECEIVE + "|" + fileSender + "|" + fileReceiver + "|" + fileName + "|" + fileSize
+											+ "\n";
+									StringBuilder builder = new StringBuilder(outMessage);
+									while (builder.length() < 8192) {
+										builder.append("-");
 									}
+									fileStringOut.print(builder.toString());
+									fileStringOut.flush();
+									try (DataInputStream fileIn = new DataInputStream(fileSocket.getInputStream());
+											FileOutputStream fileOut = new FileOutputStream(new File(fileName))) {
+
+										byte[] buffer = new byte[16384];
+										int count;
+										boolean cont = true;
+										long totalBytes = 0;
+										long start = System.currentTimeMillis();
+										int mod = 5;
+										while (cont) {
+											System.out.println("nothing to read");
+											while ((count = fileIn.read(buffer)) > 0) {
+												fileOut.write(buffer, 0, count);
+												totalBytes += count;
+												cont = false;
+												double completePercent = ((1.0 * totalBytes) / Long.parseLong(fileSize));
+												long timeDiff = (System.currentTimeMillis() - start) / 1000;
+												if (timeDiff == mod) {
+													System.out.println(timeDiff + " tb " + totalBytes + " fs " + Long.parseLong(fileSize));
+													privateChatUsers.get(fileReceiver).append(
+															fileName + " from " + fileSender + " is " + ((int) (completePercent * 100)) + "% complete.\n");
+													mod += 5;
+												}
+											}
+											privateChatUsers.get(fileReceiver).append(fileName + " from " + fileSender + " is 100% complete.\n");
+											fileOut.flush();
+										}
+										System.out.println("flushed");
+									} catch (IOException e) {
+										// TODO Auto-generated catch block
+										e.printStackTrace();
+									}
+								} catch (UnknownHostException e1) {
+									// TODO Auto-generated catch block
+									e1.printStackTrace();
+								} catch (IOException e1) {
+									// TODO Auto-generated catch block
+									e1.printStackTrace();
 								}
-								privateChatUsers.get(fileReceiver).append(fileName + " from " + fileSender + " is 100% complete.\n");
-								fileOut.flush();
 							}
-							System.out.println("flushed");
-							fileIn.close();
-							fileOut.close();
-						}
+						});
+						thread.start();
 					}
+
 				}
 					break;
 				}
