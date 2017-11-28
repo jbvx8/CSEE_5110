@@ -35,6 +35,7 @@ import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
+import javax.swing.text.DefaultCaret;
 
 import edu.umkc.csee5110.FileTransferModel;
 import edu.umkc.csee5110.MessageType;
@@ -68,6 +69,8 @@ public class ChatClient {
 
 		textField.setEditable(false);
 		textArea.setEditable(false);
+		DefaultCaret caret = (DefaultCaret) textArea.getCaret();
+		caret.setUpdatePolicy(DefaultCaret.ALWAYS_UPDATE);
 
 		BoxLayout grid = new BoxLayout(textPanel, BoxLayout.Y_AXIS);
 		textPanel.setLayout(grid);
@@ -134,10 +137,15 @@ public class ChatClient {
 		JPanel textPanel2 = new JPanel();
 		JTextField textField2 = new JTextField(40);
 		JTextArea textArea2 = new JTextArea(8, 40);
+		textArea2.setEditable(false);
+		DefaultCaret caret = (DefaultCaret) textArea2.getCaret();
+		caret.setUpdatePolicy(DefaultCaret.ALWAYS_UPDATE);
 		JButton sendFile = new JButton("Send File");
 		BoxLayout grid = new BoxLayout(textPanel2, BoxLayout.Y_AXIS);
 		textPanel2.setLayout(grid);
-		textPanel2.add(new JScrollPane(textArea2));
+		JScrollPane scroll = new JScrollPane(textArea2);
+		scroll.setAutoscrolls(true);
+		textPanel2.add(scroll);
 		textPanel2.add(textField2);
 		textPanel2.add(sendFile);
 
@@ -261,8 +269,6 @@ public class ChatClient {
 					break;
 				}
 				case FILE_OKAY: {
-					// FILE_OKAY|sender|receiver|fileName|result
-					// should trigger file send
 					String fileTypeRemoved = line.substring(line.indexOf("|") + 1);
 					String fileSenderRemoved = fileTypeRemoved.substring(fileTypeRemoved.indexOf("|") + 1);
 					String fileReceiverRemoved = fileSenderRemoved.substring(fileSenderRemoved.indexOf("|") + 1);
@@ -271,30 +277,61 @@ public class ChatClient {
 					String fileSender = fileTypeRemoved.substring(0, fileTypeRemoved.indexOf("|"));
 					String fileReceiver = fileSenderRemoved.substring(0, fileSenderRemoved.indexOf("|"));
 					if ("YES".equals(fileResult)) {
-						try (Socket fileSocket = new Socket(Constants.SERVER_IP, Constants.SERVER_PORT)) {
+						Thread thread = new Thread(new Runnable() {
 
-							PrintWriter fileStringOut = new PrintWriter(fileSocket.getOutputStream(), true);
-							String outMessage = MessageType.FILE_SEND + "|" + fileReceiver + "|" + fileSender + "|" + fileName + "|"
-									+ fileToModelMap.get(fileName).getFile().length() + "\n";
-							StringBuilder builder = new StringBuilder(outMessage);
-							while (builder.length() < 8192) {
-								builder.append("-");
-							}
-							fileStringOut.print(builder.toString());
-							fileStringOut.flush();
+							@Override
+							public void run() {
+								try (Socket fileSocket = new Socket(Constants.SERVER_IP, Constants.SERVER_PORT)) {
 
-							try (FileInputStream fileIn = new FileInputStream(fileToModelMap.get(fileName).getFile());
-									DataOutputStream fileOut = new DataOutputStream(fileSocket.getOutputStream())) {
-								byte[] buffer = new byte[16384];
+									PrintWriter fileStringOut = new PrintWriter(fileSocket.getOutputStream(), true);
+									String outMessage = MessageType.FILE_SEND + "|" + fileReceiver + "|" + fileSender + "|" + fileName + "|"
+											+ fileToModelMap.get(fileName).getFile().length() + "\n";
+									StringBuilder builder = new StringBuilder(outMessage);
+									while (builder.length() < 8192) {
+										builder.append("-");
+									}
+									fileStringOut.print(builder.toString());
+									fileStringOut.flush();
 
-								int count;
-								while ((count = fileIn.read(buffer)) > 0) {
-									fileOut.write(buffer, 0, count);
+									try (FileInputStream fileIn = new FileInputStream(fileToModelMap.get(fileName).getFile());
+											DataOutputStream fileOut = new DataOutputStream(fileSocket.getOutputStream())) {
+										byte[] buffer = new byte[16384];
+
+										int count;
+										long totalBytes = 0;
+										long start = System.currentTimeMillis();
+										int mod = 5;
+										long fileSize = fileToModelMap.get(fileName).getFile().length();
+										while ((count = fileIn.read(buffer)) > 0) {
+											fileOut.write(buffer, 0, count);
+											totalBytes += count;
+											double completePercent = ((1.0 * totalBytes) / fileSize);
+											long timeDiff = (System.currentTimeMillis() - start) / 1000;
+											if (timeDiff == mod) {
+												System.out.println(timeDiff + " tb " + totalBytes + " fs " + fileSize);
+												privateChatUsers.get(fileSender).append(
+														fileName + " to " + fileSender + " is " + ((int) (completePercent * 100)) + "% complete.\n");
+												mod += 5;
+											}
+										}
+										privateChatUsers.get(fileSender).append(fileName + " to " + fileSender + " is 100% complete.\n");
+										fileOut.flush();
+									} catch (IOException e) {
+										// TODO Auto-generated catch block
+										e.printStackTrace();
+									}
+								} catch (UnknownHostException e1) {
+									// TODO Auto-generated catch block
+									e1.printStackTrace();
+								} catch (IOException e1) {
+									// TODO Auto-generated catch block
+									e1.printStackTrace();
 								}
-
-								fileOut.flush();
 							}
-						}
+
+						});
+						thread.start();
+
 					} else {
 						fileToModelMap.remove(fileName);
 					}
@@ -309,21 +346,6 @@ public class ChatClient {
 					String fileSender = fileTypeRemoved.substring(0, fileTypeRemoved.indexOf("|"));
 					String fileReceiver = fileSenderRemoved.substring(0, fileSenderRemoved.indexOf("|"));
 					if (Long.parseLong(fileSize) > 0) {
-						// try (Socket fileSocket = new
-						// Socket(Constants.SERVER_IP, Constants.SERVER_PORT)) {
-						//
-						// PrintWriter fileStringOut = new
-						// PrintWriter(fileSocket.getOutputStream(), true);
-						// String outMessage = MessageType.FILE_RECEIVE + "|" +
-						// fileSender + "|" + fileReceiver + "|" + fileName +
-						// "|" + fileSize + "\n";
-						// StringBuilder builder = new
-						// StringBuilder(outMessage);
-						// while (builder.length() < 8192) {
-						// builder.append("-");
-						// }
-						// fileStringOut.print(builder.toString());
-						// fileStringOut.flush();
 
 						Thread thread = new Thread(new Runnable() {
 
@@ -360,7 +382,7 @@ public class ChatClient {
 												if (timeDiff == mod) {
 													System.out.println(timeDiff + " tb " + totalBytes + " fs " + Long.parseLong(fileSize));
 													privateChatUsers.get(fileReceiver).append(
-															fileName + " from " + fileSender + " is " + ((int) (completePercent * 100)) + "% complete.\n");
+															fileName + " from " + fileReceiver + " is " + ((int) (completePercent * 100)) + "% complete.\n");
 													mod += 5;
 												}
 											}
